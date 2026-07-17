@@ -52,9 +52,16 @@ webhook sözleşmesi varsayılmıştır (yalnızca `chatplace-webhook.ts` içind
   "event": "message.received",
   "conversation": { "id": "<external_conversation_id>", "channel": "instagram|facebook" },
   "contact": { "id": "<instagram_user_id>", "username": "...", "full_name": "..." },
-  "message": { "id": "<external_message_id>", "type": "text", "text": "...", "timestamp": "ISO-8601" }
+  "message": { "type": "text", "text": "...", "timestamp": "ISO-8601" }
 }
 ```
+
+`message.id` **opsiyoneldir**. ChatPlace custom `messageNonce` üretemiyorsa
+alanı hiç göndermeyin. Backend her istekte `crypto.randomUUID()` ile
+`external_message_id` üretir; böylece aynı statik id yüzünden `duplicate`
+olmaz ve `data.reply` döner. Geçerli benzersiz bir `message.id` gelirse
+aynen kullanılır (dedup korunur). Çözülmemiş `{{ ... }}` şablonları da
+UUID ile değiştirilir.
 
 İşlenen olay tipleri: `message.received`, `message.created`. Diğerleri
 `ignored` olarak kaydedilir (mesaj üretmez).
@@ -80,8 +87,6 @@ npm run test:webhooks                             # HMAC/token birim testleri
 
 Aşağıdaki alanlar **panel endpoint sözleşmemizdir**. ChatPlace UI’daki alan
 adları ekrandan ekrana değişebilir; değerleri birebir bu sözleşmeye göre yazın.
-Payload alan adları hâlâ varsayılan sözleşmedir — ChatPlace’in gerçek
-değişken/JSON şeması doğrulanınca yalnızca mapper güncellenir.
 
 | Alan | Değer |
 |---|---|
@@ -90,6 +95,27 @@ değişken/JSON şeması doğrulanınca yalnızca mapper güncellenir.
 | Header (önerilen, External API) | `x-chatplace-token: <CHATPLACE_WEBHOOK_TOKEN ile aynı değer>` |
 | Header (alternatif, HMAC mümkünse) | `x-chatplace-signature: sha256=<hmac_hex>` |
 | Content-Type | `application/json` |
+
+Önerilen body (`message.id` yok — ChatPlace’te Random Number / messageNonce gerekmez):
+
+```json
+{
+  "event": "message.received",
+  "conversation": {
+    "id": "{{ clientId }}",
+    "channel": "instagram"
+  },
+  "contact": {
+    "id": "{{ clientId }}",
+    "username": "{{ username }}",
+    "full_name": "{{ fullName }}"
+  },
+  "message": {
+    "type": "text",
+    "text": "{{ lastMessage }}"
+  }
+}
+```
 
 ### AI cevap döngüsü (ChatPlace akış ayarı)
 

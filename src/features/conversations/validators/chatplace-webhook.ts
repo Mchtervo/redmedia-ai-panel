@@ -1,14 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { IngestInboundMessageRawInput } from "@/features/conversations/validators/ingest-inbound-message";
 
 /**
  * ChatPlace webhook payload şeması.
  *
- * NOT: Gerçek ChatPlace webhook dokümantasyonu elde edilene kadar makul,
- * genel bir mesajlaşma-webhook sözleşmesi varsayılmıştır. Alan adları/olay
- * tipleri gerçek dokümana göre ayarlanabilir; ingest mantığı (mapper) bu
- * şemadan `ingestInboundMessage` girdisine çevirdiği için değişiklik yalnızca
- * bu dosyayla sınırlı kalır (bkz. docs/CHATPLACE.md).
+ * `message.id` opsiyoneldir. ChatPlace custom messageNonce üretemediği için
+ * id yoksa / boşsa / çözülmemiş şablon ise backend UUID üretir
+ * (bkz. docs/CHATPLACE.md).
  */
 export const chatPlaceWebhookSchema = z.object({
   // Olay tipi, ör. "message.received". Yalnızca gelen müşteri mesajı olayları
@@ -24,7 +23,7 @@ export const chatPlaceWebhookSchema = z.object({
     full_name: z.string().min(1).optional(),
   }),
   message: z.object({
-    id: z.string().min(1),
+    id: z.string().min(1).optional(),
     type: z
       .enum(["text", "image", "video", "audio", "file", "template"])
       .default("text"),
@@ -40,6 +39,27 @@ export const INBOUND_MESSAGE_EVENTS = ["message.received", "message.created"] as
 
 export function isInboundMessageEvent(event: string): boolean {
   return (INBOUND_MESSAGE_EVENTS as readonly string[]).includes(event);
+}
+
+/**
+ * ChatPlace `message.id` yoksa veya kullanılamazsa (boş / çözülmemiş şablon)
+ * her istek için yeni UUID üretir. Geçerli bir id gelirse aynen kullanılır
+ * (test script'leri ve gerçek benzersiz id'ler için dedup korunur).
+ */
+export function resolveExternalMessageId(
+  messageId: string | undefined
+): string {
+  const trimmed = messageId?.trim();
+  if (!trimmed) {
+    return randomUUID();
+  }
+
+  // ChatPlace değişkeni çözülmeden gelmiş şablonlar (örn. {{ messageNonce }}).
+  if (trimmed.includes("{{") || trimmed === "message.id") {
+    return randomUUID();
+  }
+
+  return trimmed;
 }
 
 /**
@@ -59,7 +79,7 @@ export function toIngestInput(
       username: payload.contact.username,
       fullName: payload.contact.full_name,
     },
-    externalMessageId: payload.message.id,
+    externalMessageId: resolveExternalMessageId(payload.message.id),
     content: payload.message.text,
     messageType: payload.message.type,
     occurredAt: payload.message.timestamp,

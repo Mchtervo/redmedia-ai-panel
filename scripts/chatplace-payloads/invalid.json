@@ -2,13 +2,13 @@
   "event": "message.received",
   "conversation": {
     "id": "cp-conv-demo-webhook-1",
-    "channel": "instagram"
+    "channel": "whatsapp"
   },
   "contact": {
     "id": "cp-user-demo-webhook-1"
   },
   "message": {
     "type": "text",
-    "text": "Bu payload gecersiz: message.id eksik."
+    "text": "Bu payload gecersiz: channel enum disi."
   }
 }
