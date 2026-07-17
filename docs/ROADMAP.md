@@ -11,12 +11,15 @@ tamamlanmış olmalıdır.
 - Sade başlangıç ana sayfası.
 - Cursor Project Rules ve proje dokümantasyonu (bu belgeler).
 
-## Aşama 1 — Supabase Bağlantısı ve Temel Şema
+## Aşama 1 — Supabase Bağlantısı ve Temel Şema (Tamamlandı)
 
-- Supabase projesi bağlanır (env değişkenleri, `anon`/`service role` istemci
-  ayrımı — bkz. `docs/SECURITY.md`).
-- İlk migration'lar: personel/yetkilendirme, müşteri, temel tablolar.
-- RLS politikaları tablo oluşturmayla birlikte yazılır.
+- [x] Supabase proje anahtarları `.env.local` içine eklendi.
+- [x] v1 şeması `supabase/migrations/` altında 10 migration dosyası olarak
+      tanımlandı (25 tablo; bkz. `docs/DATABASE.md`). Her tabloda RLS aktif.
+- [x] Migration'lar canlı Supabase projesine uygulandı ve doğrulandı (25/25 tablo).
+- [x] Uygulama kodunda Supabase istemcisi kuruldu (`anon`/`service role`
+      ayrımı — `src/lib/supabase/client.ts`, `src/server/supabase/{server,admin}.ts`).
+- [x] Şemadan TypeScript tipleri üretildi (`src/types/database.ts`, `any` kullanılmadı).
 
 ## Aşama 2 — Kimlik Doğrulama ve Personel Yönetimi
 

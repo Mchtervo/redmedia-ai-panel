@@ -1,0 +1,17 @@
+{
+  "event": "message.received",
+  "conversation": {
+    "id": "cp-conv-demo-webhook-1",
+    "channel": "instagram"
+  },
+  "contact": {
+    "id": "cp-user-demo-webhook-1",
+    "username": "webhook_demo_user",
+    "full_name": "Webhook Demo Kullanici"
+  },
+  "message": {
+    "id": "cp-msg-demo-webhook-2",
+    "type": "image",
+    "timestamp": "2026-07-17T16:01:00Z"
+  }
+}

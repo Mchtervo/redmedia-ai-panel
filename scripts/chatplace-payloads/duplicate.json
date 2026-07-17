@@ -1,0 +1,18 @@
+{
+  "event": "message.received",
+  "conversation": {
+    "id": "cp-conv-demo-webhook-1",
+    "channel": "instagram"
+  },
+  "contact": {
+    "id": "cp-user-demo-webhook-1",
+    "username": "webhook_demo_user",
+    "full_name": "Webhook Demo Kullanici"
+  },
+  "message": {
+    "id": "cp-msg-demo-webhook-1",
+    "type": "text",
+    "text": "Merhaba, webhook uzerinden gelen ilk mesaj.",
+    "timestamp": "2026-07-17T16:00:00Z"
+  }
+}
