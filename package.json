@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:webhooks": "tsx --test src/server/webhooks/chatplace-auth.test.ts",
     "seed:conversations": "tsx --env-file=.env.local scripts/seed-conversations.ts",
     "webhook:send": "tsx --env-file=.env.local scripts/send-chatplace-webhook.ts"
   },

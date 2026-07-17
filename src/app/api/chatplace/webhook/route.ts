@@ -1,14 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/server/supabase/admin";
-import {
-  CHATPLACE_SIGNATURE_HEADER,
-  verifyChatPlaceSignature,
-} from "@/server/webhooks/chatplace-signature";
+import { verifyChatPlaceWebhookAuth } from "@/server/webhooks/chatplace-auth";
+import { CHATPLACE_SIGNATURE_HEADER } from "@/server/webhooks/chatplace-signature";
+import { CHATPLACE_TOKEN_HEADER } from "@/server/webhooks/chatplace-token";
 import { checkRateLimit } from "@/server/rate-limit/in-memory-rate-limiter";
 import { processChatPlaceWebhook } from "@/features/conversations/services/chatplace-webhook.service";
 import { apiError, apiSuccess } from "@/types/api";
 
-// İmza doğrulaması node:crypto kullandığı için Node.js runtime gereklidir.
+// İmza/token doğrulaması node:crypto kullandığı için Node.js runtime gereklidir.
 export const runtime = "nodejs";
 
 const RATE_LIMIT = 60;
@@ -36,18 +35,19 @@ export async function POST(request: NextRequest) {
   // 2. İmza için HAM gövde okunur (parse edilmeden önce).
   const rawBody = await request.text();
 
-  // 3. İmza doğrulama — başarısızsa istek işlenmeden reddedilir; hiçbir
-  //    veri yazılmaz (bkz. .cursor/rules/02-security.mdc, docs/CHATPLACE.md).
-  const signature = request.headers.get(CHATPLACE_SIGNATURE_HEADER);
-  const signatureVerified = verifyChatPlaceSignature(
+  // 3. Kimlik doğrulama: geçerli HMAC **veya** geçerli statik token.
+  //    İkisi de geçersizse istek işlenmeden reddedilir (fail-closed).
+  const signatureVerified = verifyChatPlaceWebhookAuth({
     rawBody,
-    signature,
-    process.env.CHATPLACE_WEBHOOK_SECRET
-  );
+    signatureHeader: request.headers.get(CHATPLACE_SIGNATURE_HEADER),
+    tokenHeader: request.headers.get(CHATPLACE_TOKEN_HEADER),
+    webhookSecret: process.env.CHATPLACE_WEBHOOK_SECRET,
+    webhookToken: process.env.CHATPLACE_WEBHOOK_TOKEN,
+  });
 
   if (!signatureVerified) {
     return NextResponse.json(
-      apiError("invalid_signature", "İmza doğrulanamadı."),
+      apiError("unauthorized", "Webhook kimlik doğrulaması başarısız."),
       { status: 401 }
     );
   }

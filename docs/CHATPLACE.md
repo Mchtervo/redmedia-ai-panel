@@ -10,10 +10,15 @@
 
 - **URL:** `POST /api/chatplace/webhook`
 - **Runtime:** Node.js (imza doğrulaması `node:crypto` kullanır).
-- **İmza:** `x-chatplace-signature` header'ı, ham gövdenin
-  HMAC-SHA256'sı (`CHATPLACE_WEBHOOK_SECRET` ile). `sha256=<hex>` veya `<hex>`
-  formatı kabul edilir; timing-safe karşılaştırılır
-  (`src/server/webhooks/chatplace-signature.ts`).
+- **Kimlik doğrulama (HMAC veya token):**
+  - HMAC: `x-chatplace-signature` — ham gövdenin HMAC-SHA256'sı
+    (`CHATPLACE_WEBHOOK_SECRET`). `sha256=<hex>` veya `<hex>`; timing-safe
+    (`src/server/webhooks/chatplace-signature.ts`).
+  - Statik token: `x-chatplace-token` — `CHATPLACE_WEBHOOK_TOKEN` ile
+    timing-safe karşılaştırma (`src/server/webhooks/chatplace-token.ts`).
+    ChatPlace External API Request dinamik HMAC üretemiyorsa bu yol kullanılır.
+  - İkisinden **biri** geçerliyse istek kabul edilir; ikisi de geçersizse 401
+    (`src/server/webhooks/chatplace-auth.ts`).
 - **Rate limiting:** IP başına best-effort in-memory limit
   (`src/server/rate-limit/`), 60 istek / 60 sn.
 - **İşleyen kod:**
@@ -28,7 +33,7 @@
 | Durum | webhook_events.status | HTTP |
 |---|---|---|
 | Rate limit aşıldı | (kayıt yok) | 429 |
-| İmza geçersiz/eksik | (kayıt yok — DoS/flood önleme) | 401 |
+| HMAC ve token geçersiz/eksik | (kayıt yok — DoS/flood önleme) | 401 |
 | Geçersiz JSON | (kayıt yok) | 400 |
 | Zod doğrulama başarısız | `failed` | 400 |
 | Gelen mesaj olayı değil | `ignored` | 200 |
@@ -67,7 +72,25 @@ npm run webhook:send -- duplicate        # ignored (dedup)
 npm run webhook:send -- invalid          # 400 (zod)
 npm run webhook:send -- message-text --bad-sign   # 401
 npm run webhook:send -- message-text --no-sign    # 401
+npm run webhook:send -- message-text --token      # token ile 200 (env'de TOKEN gerekir)
+npm run test:webhooks                             # HMAC/token birim testleri
 ```
+
+### ChatPlace External API Request (yapılandırma alanları)
+
+Aşağıdaki alanlar **panel endpoint sözleşmemizdir**. ChatPlace UI’daki alan
+adları ekrandan ekrana değişebilir; değerleri birebir bu sözleşmeye göre yazın.
+Payload alan adları hâlâ varsayılan sözleşmedir — ChatPlace’in gerçek
+değişken/JSON şeması doğrulanınca yalnızca mapper güncellenir.
+
+| Alan | Değer |
+|---|---|
+| HTTP method | `POST` |
+| URL | `https://redmedia-ai-panel.vercel.app/api/chatplace/webhook` |
+| Header (önerilen, External API) | `x-chatplace-token: <CHATPLACE_WEBHOOK_TOKEN ile aynı değer>` |
+| Header (alternatif, HMAC mümkünse) | `x-chatplace-signature: sha256=<hmac_hex>` |
+| Content-Type | `application/json` |
+
 
 ## Amaç
 
@@ -120,10 +143,12 @@ gerçek ChatPlace bağlantısı kurulana kadar bilinçli bir sınırlamadır.
 
 ## Güvenlik Notları
 
-- Webhook secret/imza doğrulaması zorunludur ve uygulandı (HMAC-SHA256, timing-safe).
+- Webhook kimlik doğrulaması zorunludur: HMAC-SHA256 ve/veya statik token
+  (timing-safe); ikisinden biri geçerli olmalıdır.
 - Endpoint'te rate limiting uygulandı (best-effort in-memory; üretimde paylaşımlı depoya geçirilmeli).
 - Gelen mesaj içeriği (hassas müşteri verisi) loglanmaz; hata durumunda yalnızca kısa, içeriksiz özet `webhook_events.error_message`'a yazılır.
-- `CHATPLACE_WEBHOOK_SECRET` yalnızca sunucu tarafında okunur, `NEXT_PUBLIC_` öneki almaz, asla loglanmaz.
+- `CHATPLACE_WEBHOOK_SECRET` ve `CHATPLACE_WEBHOOK_TOKEN` yalnızca sunucu
+  tarafında okunur, `NEXT_PUBLIC_` öneki almaz, asla loglanmaz.
 - Service role yalnızca sunucu tarafında (Route Handler, Server Action) kullanılır — bkz. `docs/DATABASE.md` RLS notu.
 
 ## Kapsam (v1 — Tamamlandı)

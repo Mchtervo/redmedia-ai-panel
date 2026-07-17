@@ -1,6 +1,10 @@
 # server/webhooks/
 
-ChatPlace ve Meta webhook isteklerinin imza/secret doğrulama yardımcıları
-burada tanımlanacaktır (bkz. `docs/CHATPLACE.md`, `docs/META.md`,
-`.cursor/rules/02-security.mdc`). İlgili entegrasyon geliştirilmeye
-başlandığında doldurulacaktır.
+ChatPlace webhook kimlik doğrulama yardımcıları:
+
+- `chatplace-signature.ts` — HMAC-SHA256 (`x-chatplace-signature`)
+- `chatplace-token.ts` — statik token (`x-chatplace-token`)
+- `chatplace-auth.ts` — HMAC **veya** token (fail-closed)
+- `chatplace-auth.test.ts` — birim testleri (`npm run test:webhooks`)
+
+Bkz. `docs/CHATPLACE.md`, `.cursor/rules/02-security.mdc`.
