@@ -13,6 +13,7 @@ import {
 import {
   findMessageByExternalId,
   insertInboundMessage,
+  insertOutboundAiMessage,
   insertOutboundStaffMessage,
   listMessagesByConversation,
 } from "@/features/conversations/repositories/messages.repository";
@@ -85,10 +86,17 @@ export async function getInboxConversationDetail(
  * tarafından çağrılıyor. Webhook Route Handler'ı eklendiğinde aynı
  * fonksiyon kullanılacaktır.
  */
+export type IngestInboundMessageResult = {
+  message: Message;
+  wasDuplicate: boolean;
+  conversationId: string;
+  contactId: string;
+};
+
 export async function ingestInboundMessage(
   supabase: TypedSupabaseClient,
   rawInput: IngestInboundMessageRawInput
-): Promise<{ message: Message; wasDuplicate: boolean }> {
+): Promise<IngestInboundMessageResult> {
   // Dış kaynaklı (webhook/seed) girdi; Zod ile doğrulanır ve varsayılanlar
   // (messageType, initialStatus) uygulanır (bkz. .cursor/rules/01-code-quality.mdc).
   const input = ingestInboundMessageSchema.parse(rawInput);
@@ -114,7 +122,12 @@ export async function ingestInboundMessage(
     );
 
     if (existing) {
-      return { message: existing, wasDuplicate: true };
+      return {
+        message: existing,
+        wasDuplicate: true,
+        conversationId: conversation.id,
+        contactId: contact.id,
+      };
     }
   }
 
@@ -132,7 +145,12 @@ export async function ingestInboundMessage(
 
   await touchLastMessageAt(supabase, conversation.id, message.created_at);
 
-  return { message, wasDuplicate: false };
+  return {
+    message,
+    wasDuplicate: false,
+    conversationId: conversation.id,
+    contactId: contact.id,
+  };
 }
 
 export type SendStaffMessageParams = {
@@ -153,6 +171,31 @@ export async function sendStaffMessage(
   const message = await insertOutboundStaffMessage(supabase, {
     conversationId,
     content,
+  });
+
+  await touchLastMessageAt(supabase, conversationId, message.created_at);
+
+  return message;
+}
+
+export type SendAiMessageParams = {
+  conversationId: string;
+  content: string;
+  aiRunId?: string;
+};
+
+/**
+ * AI cevabını panel DB'sine kaydeder. Instagram'a iletim ChatPlace
+ * External Request `data.reply` + Mesaj bloğu ile yapılır.
+ */
+export async function sendAiMessage(
+  supabase: TypedSupabaseClient,
+  { conversationId, content, aiRunId }: SendAiMessageParams
+): Promise<Message> {
+  const message = await insertOutboundAiMessage(supabase, {
+    conversationId,
+    content,
+    rawPayload: aiRunId ? { ai_run_id: aiRunId } : null,
   });
 
   await touchLastMessageAt(supabase, conversationId, message.created_at);

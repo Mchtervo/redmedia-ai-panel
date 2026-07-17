@@ -91,6 +91,31 @@ değişken/JSON şeması doğrulanınca yalnızca mapper güncellenir.
 | Header (alternatif, HMAC mümkünse) | `x-chatplace-signature: sha256=<hmac_hex>` |
 | Content-Type | `application/json` |
 
+### AI cevap döngüsü (ChatPlace akış ayarı)
+
+Webhook başarılı ingest + OpenAI sonrası HTTP 200 örneği:
+
+```json
+{
+  "success": true,
+  "data": {
+    "outcome": "processed",
+    "webhookEventId": "<uuid>",
+    "reply": "<AI cevap metni>"
+  }
+}
+```
+
+ChatPlace otomasyonunda önerilen sıra:
+
+1. **Save message** → `lastMessage` (veya kendi değişken adın)
+2. **Harici istek** → `POST .../api/chatplace/webhook` (mevcut body + token)
+3. **Yanıt eşleme** → `data.reply` → örn. değişken `aiReply`
+4. **Mesaj** bloğu → metin: `{{ aiReply }}` (picker ile seç)
+
+Not: ChatPlace'in kamuya açık bir "mesaj gönder" REST API'si dokümante
+değildir; Instagram'a iletim bu Mesaj bloğu ile yapılır. Panel DB'sine AI
+cevabı ayrıca `messages` (`sender_type=ai`) olarak yazılır.
 
 ## Amaç
 
@@ -111,8 +136,9 @@ konuşmalarla ilişkilendirmek için ChatPlace ile entegre olacaktır.
 6. `conversations`: `channel` + `external_conversation_id` ile bul-veya-oluştur (bkz. `features/conversations/repositories/conversations.repository.ts` → `findOrCreateConversation`).
 7. `messages`: `external_message_id` ile **tekrar kontrolü** yapılır; yeni ise `direction=inbound, sender_type=customer` olarak eklenir.
 8. `conversations.last_message_at`, **geriye alınmayacak şekilde** (`GREATEST(mevcut, yeni)`) güncellenir.
-9. `webhook_events.status='processed'` olarak işaretlenir.
-10. Gerekiyorsa AI modülü tetiklenir (bkz. `docs/AI.md`).
+9. Yeni mesajda (duplicate değilse) basit AI asistanı tetiklenir (`docs/AI.md`):
+   OpenAI → `ai_runs` + outbound AI `messages` → HTTP `data.reply`.
+10. `webhook_events.status='processed'` olarak işaretlenir.
 
 Bu akışın **5-8. adımları v1'de gerçek implementasyonu ile hazır**
 (`features/conversations/services/conversations.service.ts` → `ingestInboundMessage`),
@@ -160,9 +186,8 @@ gerçek ChatPlace bağlantısı kurulana kadar bilinçli bir sınırlamadır.
 
 ## Kapsam Dışı (v1)
 
-- Gerçek ChatPlace "mesaj gönder" (giden) API çağrısı.
+- ChatPlace'e sunucu tarafından push "mesaj gönder" REST çağrısı (doküman yok;
+  DM iletimi External Request yanıtı + Mesaj bloğu ile).
+- Panelden personel mesajının ChatPlace üzerinden Instagram'a gönderilmesi.
 - ChatPlace tarafındaki otomasyon akışının panelden düzenlenmesi.
 - Webhook için kalıcı/dağıtık rate limiting (şu an in-memory best-effort).
-
-Gerçek entegrasyon başladığında bu belge; kullanılan endpoint'ler, webhook
-event tipleri ve hata senaryolarıyla güncellenecektir.

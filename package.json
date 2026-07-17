@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:webhooks": "tsx --test src/server/webhooks/chatplace-auth.test.ts",
+    "test:ai": "tsx --test src/features/ai/services/simple-assistant.service.test.ts",
     "seed:conversations": "tsx --env-file=.env.local scripts/seed-conversations.ts",
     "webhook:send": "tsx --env-file=.env.local scripts/send-chatplace-webhook.ts"
   },
@@ -19,6 +20,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
+    "openai": "^6.48.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "shadcn": "^4.13.0",

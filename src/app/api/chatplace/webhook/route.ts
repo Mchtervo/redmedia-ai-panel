@@ -9,6 +9,8 @@ import { apiError, apiSuccess } from "@/types/api";
 
 // İmza/token doğrulaması node:crypto kullandığı için Node.js runtime gereklidir.
 export const runtime = "nodejs";
+// OpenAI cevap üretimi için Vercel fonksiyon süresini uzatır.
+export const maxDuration = 60;
 
 const RATE_LIMIT = 60;
 const RATE_WINDOW_MS = 60_000;
@@ -91,10 +93,14 @@ export async function POST(request: NextRequest) {
     }
 
     // processed | duplicate | ignored → 200 (ChatPlace tekrar denemesin).
+    // `reply`: ChatPlace Yanıt eşleme → Mesaj bloğu için AI cevabı.
     return NextResponse.json(
       apiSuccess({
         outcome: result.outcome,
         webhookEventId: result.webhookEventId,
+        ...("reply" in result && result.reply
+          ? { reply: result.reply }
+          : {}),
       }),
       { status: 200 }
     );

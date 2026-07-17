@@ -111,3 +111,46 @@ export async function insertOutboundStaffMessage(
 
   return data;
 }
+
+export type InsertOutboundAiMessageParams = {
+  conversationId: string;
+  content: string;
+  /** OpenAI/ChatPlace tarafında varsa dış mesaj kimliği. */
+  externalMessageId?: string | null;
+  rawPayload?: Json | null;
+};
+
+/**
+ * AI cevabını `messages` tablosuna yazar (`sender_type=ai`).
+ * ChatPlace'e push gönderim bu katmanda yapılmaz; DM iletimi ChatPlace
+ * External Request yanıt eşlemesi + Mesaj bloğu ile yapılır (docs/CHATPLACE.md).
+ */
+export async function insertOutboundAiMessage(
+  supabase: TypedSupabaseClient,
+  {
+    conversationId,
+    content,
+    externalMessageId,
+    rawPayload,
+  }: InsertOutboundAiMessageParams
+): Promise<Message> {
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({
+      conversation_id: conversationId,
+      direction: "outbound",
+      sender_type: "ai",
+      message_type: "text",
+      content,
+      external_message_id: externalMessageId ?? null,
+      raw_payload: rawPayload ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
