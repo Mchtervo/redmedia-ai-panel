@@ -1,7 +1,8 @@
 # Yapay Zekâ (AI) Modülü
 
-> **Durum:** Basit DM asistanı (OpenAI) bağlandı. Hafıza, RAG ve satış
-> kuralları henüz yok — sonraki fazda eklenecek.
+> **Durum:** Redmedia satış asistanı (OpenAI) bağlandı. Gelen mesaj +
+> müşteri profili + son konuşma özeti prompta dahil. RAG / knowledge
+> henüz yok.
 
 ## Amaç
 
@@ -23,17 +24,23 @@ Aşağıdaki kurallar tüm AI özellikleri için zorunludur (bkz.
 5. **Kaynağa dayanır (grounding).** AI, Redmedia'nın işletme bilgisi
    (hizmetler, fiyatlar, politikalar) dışına çıkarak bilgi üretmez.
 6. **Müşteri hafızası Supabase'de saklanır.** Geçici/bellek-içi bir çözüm
-   kullanılmaz. (v1: konuşma hafızası henüz AI bağlamına eklenmedi.)
+   kullanılmaz. AI, `contacts` + son `messages` kayıtlarını bağlam olarak okur.
 
-## v1 — Basit DM Asistanı
+## v1 — Redmedia Satış Asistanı
 
-**Akış:** ChatPlace webhook → `ingestInboundMessage` → OpenAI → `ai_runs` +
-`messages` (`sender_type=ai`) → HTTP cevabında `data.reply`.
+**Akış:** ChatPlace webhook → `ingestInboundMessage` → OpenAI (profil +
+konuşma özeti + gelen mesaj) → `ai_runs` + `messages` (`sender_type=ai`) →
+HTTP `data.reply`.
 
 ChatPlace tarafında `data.reply` **Yanıt eşleme** ile bir değişkene map edilir;
 sonraki **Mesaj** bloğu Instagram DM'e yazar (bkz. `docs/CHATPLACE.md`).
-Kamuya açık ChatPlace "mesaj gönder" REST API'si dokümante olmadığı için
-sunucudan push gönderim yapılmaz.
+
+### Satış davranışı (özet)
+
+- Türkçe, 1–3 kısa cümle; ilk temasta tebrik → düğün/nişan → tarih → mekân.
+- Şehir daima Ankara; paketler çiftin isteğine göre birlikte kurulur.
+- Fiyat sorulursa önce ihtiyaçları netleştir; telefon yoksa ayrıntılı fiyat /
+  rezervasyon yok. Fiyat/müsaitlik/kampanya uydurma yasak.
 
 ### Kod
 
@@ -74,7 +81,7 @@ ve personel atama otomasyonu sonraki fazda.
 ## Kapsam Dışı (v1 — sonraki faz)
 
 - RAG / `knowledge_documents` / `knowledge_chunks` grounding
-- Konuşma geçmişi / müşteri hafızası bağlamı
+- Kalıcı konuşma özeti tablosu (`conversation_summaries`) üretimi
 - Gelişmiş sınıflandırma ve otomatik personel atama
 - Meta reklam analizi AI
 - Panelden personel mesajının ChatPlace'e gönderilmesi

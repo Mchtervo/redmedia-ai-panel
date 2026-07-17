@@ -2,15 +2,21 @@ import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/types/database";
 import { insertAiRun } from "@/features/ai/repositories/ai-runs.repository";
+import { getContactById } from "@/features/contacts/repositories/contacts.repository";
+import { listRecentMessagesByConversation } from "@/features/conversations/repositories/messages.repository";
 import {
+  buildAssistantUserPrompt,
   SIMPLE_ASSISTANT_FALLBACK_REPLY,
   SIMPLE_ASSISTANT_SYSTEM_PROMPT,
   SIMPLE_ASSISTANT_TASK_TYPE,
+  type AssistantContactProfile,
+  type AssistantHistoryMessage,
 } from "@/features/ai/prompts/simple-assistant";
 
 type TypedSupabaseClient = SupabaseClient<Database>;
 
 const DEFAULT_MODEL = "gpt-4o-mini";
+const RECENT_MESSAGE_LIMIT = 12;
 
 /**
  * Basit anahtar kelime sınıflandırması — RAG/karar katmanı sonraki faz.
@@ -61,9 +67,59 @@ function getModel(): string {
   return process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL;
 }
 
+async function loadContactProfile(
+  supabase: TypedSupabaseClient,
+  contactId: string | null
+): Promise<AssistantContactProfile | null> {
+  if (!contactId) {
+    return null;
+  }
+
+  const contact = await getContactById(supabase, contactId);
+  if (!contact) {
+    return null;
+  }
+
+  return {
+    fullName: contact.full_name,
+    username: contact.username,
+    phone: contact.phone,
+    status: contact.status,
+  };
+}
+
+async function loadRecentHistory(
+  supabase: TypedSupabaseClient,
+  conversationId: string,
+  currentMessage: string
+): Promise<AssistantHistoryMessage[]> {
+  const messages = await listRecentMessagesByConversation(
+    supabase,
+    conversationId,
+    RECENT_MESSAGE_LIMIT
+  );
+
+  const history = messages
+    .filter((message) => Boolean(message.content?.trim()))
+    .map((message) => ({
+      senderType: message.sender_type,
+      content: message.content!.trim().slice(0, 500),
+    }));
+
+  // Geçmişte zaten son müşteri mesajı varsa tekrar ekleme.
+  const last = history[history.length - 1];
+  if (
+    last?.senderType === "customer" &&
+    last.content === currentMessage.trim()
+  ) {
+    return history;
+  }
+
+  return history;
+}
+
 /**
- * Basit DM asistanı: tek mesaj + system prompt → OpenAI → ai_runs log.
- * Hafıza / RAG yok (bkz. docs/AI.md).
+ * Redmedia satış asistanı: profil + konuşma özeti + gelen mesaj → OpenAI → ai_runs.
  */
 export async function generateSimpleAssistantReply(
   supabase: TypedSupabaseClient,
@@ -83,14 +139,25 @@ export async function generateSimpleAssistantReply(
   }
 
   try {
+    const [contact, recentMessages] = await Promise.all([
+      loadContactProfile(supabase, params.contactId),
+      loadRecentHistory(supabase, params.conversationId, userContent),
+    ]);
+
+    const promptUserContent = buildAssistantUserPrompt({
+      customerMessage: userContent,
+      contact,
+      recentMessages,
+    });
+
     const client = new OpenAI({ apiKey });
     const completion = await client.chat.completions.create({
       model,
-      temperature: 0.4,
-      max_tokens: 400,
+      temperature: 0.55,
+      max_tokens: 220,
       messages: [
         { role: "system", content: SIMPLE_ASSISTANT_SYSTEM_PROMPT },
-        { role: "user", content: userContent },
+        { role: "user", content: promptUserContent },
       ],
     });
 
@@ -99,7 +166,18 @@ export async function generateSimpleAssistantReply(
       SIMPLE_ASSISTANT_FALLBACK_REPLY;
 
     const resultPayload: Json = {
-      input: { customerMessage: userContent },
+      input: {
+        customerMessage: userContent,
+        contact: contact
+          ? {
+              fullName: contact.fullName,
+              username: contact.username,
+              hasPhone: Boolean(contact.phone?.trim()),
+              status: contact.status,
+            }
+          : null,
+        recentMessageCount: recentMessages.length,
+      },
       output: { reply: replyText },
       requiresHumanApproval: needsHuman,
     };

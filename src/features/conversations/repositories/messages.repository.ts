@@ -22,6 +22,29 @@ export async function listMessagesByConversation(
   return data ?? [];
 }
 
+/**
+ * AI bağlamı için son N mesajı kronolojik sırada döner
+ * (en eskiden en yeniye). Mevcut inbound dahil olabilir.
+ */
+export async function listRecentMessagesByConversation(
+  supabase: TypedSupabaseClient,
+  conversationId: string,
+  limit = 12
+): Promise<Message[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).slice().reverse();
+}
+
 /** Tekrar kontrolü (idempotency) için — bkz. docs/CHATPLACE.md. */
 export async function findMessageByExternalId(
   supabase: TypedSupabaseClient,
