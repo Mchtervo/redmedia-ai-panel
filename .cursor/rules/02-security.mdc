@@ -1,0 +1,58 @@
+---
+description: Güvenlik kuralları - API anahtarları, Supabase, webhook, rate limiting, RLS
+alwaysApply: true
+---
+
+# Güvenlik Kuralları
+
+## Sırlar ve API Anahtarları
+
+- API anahtarı, token, secret gibi hassas değerler **asla** istemci koduna
+  (Client Component, tarayıcıda çalışan kod, `NEXT_PUBLIC_*` env değişkeni)
+  yazılmayacak.
+- Tüm sırlar sunucu tarafı environment variable olarak tutulacak ve yalnızca
+  Server Component, Route Handler veya Server Action içinden okunacak.
+- Sır değerleri kod içine sabit (hardcoded) yazılmayacak; her zaman
+  `process.env` üzerinden okunacak.
+- `.env*` dosyaları asla commit edilmeyecek (bkz. `.gitignore`).
+
+## Supabase Service Role
+
+- Supabase **service role key** yalnızca sunucu tarafı kodda kullanılacak
+  (Route Handler, Server Action, sunucu bileşeni).
+- İstemciye gönderilen Supabase istemcisi her zaman `anon` key ile
+  oluşturulacak; service role client hiçbir zaman tarayıcıya ulaşmayacak
+  şekilde modüllenecek (örn. `src/lib/supabase/server.ts` vs
+  `src/lib/supabase/client.ts` ayrımı).
+
+## Webhook Doğrulama
+
+- Meta ve ChatPlace gibi dış servislerden gelen her webhook isteği, işlenmeden
+  önce doğrulanacak (imza/secret/header kontrolü ilgili servisin
+  dokümantasyonına göre yapılacak).
+- Doğrulaması başarısız olan istek reddedilecek ve işlenmeyecek; sessizce
+  kabul edilmeyecek.
+
+## Rate Limiting
+
+- Dışarıdan erişilebilen API route'larda ve webhook endpoint'lerinde rate
+  limiting uygulanacak; sınırsız istek kabul edilmeyecek.
+- Rate limit aşıldığında standart hata cevabı (bkz. `01-code-quality.mdc`
+  API cevap formatı) dönecek, sunucu detayı sızdırılmayacak.
+
+## RLS (Row Level Security)
+
+- Kullanıcı/müşteri verisi içeren **her** Supabase tablosunda RLS aktif
+  olacak; RLS'siz tablo ile canlıya çıkılmayacak.
+- RLS politikaları tablo oluşturulurken birlikte yazılacak, sonradan "eklenir"
+  diye ertelenmeyecek.
+- Politikalar en az yetki (least privilege) ilkesine göre yazılacak: bir
+  kullanıcı yalnızca kendi/erişim yetkisi olan veriyi görebilecek.
+
+## Loglama
+
+- Loglarda API anahtarı, token, şifre veya müşteriye ait hassas kişisel/ticari
+  veri (telefon, mesaj içeriği, ödeme bilgisi vb.) **gösterilmeyecek**.
+- Hata logları kısa ve net tutulacak; gerekirse yalnızca ilişkili kayıt
+  ID'si loglanacak, içerik loglanmayacak.
+- Log kaydı gerekiyorsa hassas alanlar maskelenecek veya tamamen çıkarılacak.

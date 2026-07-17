@@ -1,0 +1,68 @@
+---
+description: Kod kalitesi, TypeScript ve mimari standartları
+alwaysApply: true
+---
+
+# Kod Kalitesi Standartları
+
+## TypeScript
+
+- `strict` mod her zaman açık kalacak, gevşetilmeyecek.
+- `any` kullanılmayacak. Belirsiz tip için `unknown` kullanılıp tip daraltma
+  (`type narrowing`) yapılacak; gerekirse generic tip tanımlanacak.
+- `as` ile zorla tip dönüştürme (type casting) yalnızca gerçekten kaçınılmaz
+  olduğunda ve yorum satırıyla nedeni açıklanarak kullanılacak.
+- Tüm fonksiyon parametreleri ve dönüş tipleri açık ya da güvenle çıkarılabilir
+  (inferred) olacak; örtük `any`'ye yol açacak imzalardan kaçınılacak.
+
+## Bağımlılıklar
+
+- Yeni bir npm paketi eklemeden önce mevcut bağımlılıklarla (Next.js, React,
+  Tailwind) çözülüp çözülemeyeceği değerlendirilecek.
+- Küçük bir yardımcı fonksiyonla çözülebilecek iş için kütüphane eklenmeyecek.
+- Her yeni bağımlılık gerekçelendirilecek: hangi ihtiyacı karşılıyor, neden
+  mevcut araçlarla yapılamıyor.
+
+## Tekrar Eden Kod
+
+- Aynı mantık iki veya daha fazla yerde tekrarlanacaksa ortak bir fonksiyona/
+  modüle çıkarılacak (`src/lib`, `src/utils` gibi paylaşılan konumlar).
+- Kopyala-yapıştır ile çoğaltılan bileşen/fonksiyon yerine parametreli, tekrar
+  kullanılabilir bir çözüm tercih edilecek.
+
+## Server / Client Component
+
+- Varsayılan olarak **Server Component** kullanılacak.
+- `"use client"` yönergesi yalnızca gerçekten gerekli olduğunda eklenecek:
+  state, effect, tarayıcı API'si, event handler, interaktif üçüncü parti
+  bileşen gibi durumlar.
+- Client Component'ler mümkün olduğunca küçük ve ağaçta en yaprak (leaf)
+  seviyede tutulacak; büyük sayfa/layout'lar client'a çevrilmeyecek.
+
+## API Cevapları
+
+- Tüm API route/handler cevapları standart bir zarfla (envelope) dönecek, ör.:
+
+```ts
+type ApiResponse<T> =
+  | { success: true; data: T }
+  | { success: false; error: { code: string; message: string } };
+```
+
+- Hata mesajları kullanıcıya gösterilebilir ve tutarlı olacak; ham hata
+  (stack trace, sürücü hatası vb.) doğrudan istemciye sızdırılmayacak.
+
+## Veri Doğrulama
+
+- Dışarıdan gelen her veri (form girdisi, API route body/query, webhook
+  payload) Zod şeması ile doğrulanacak; doğrulanmamış veri iş mantığına
+  geçirilmeyecek.
+- Zod şemaları ilgili modülün yanında tutulacak ve tip çıkarımı
+  (`z.infer`) ile TypeScript tipleriyle senkron kalacak.
+
+## Büyük İşlemler
+
+- Uzun/karmaşık bir fonksiyon, tek bir işi yapan daha küçük fonksiyonlara
+  bölünecek (okunabilirlik ve test edilebilirlik için).
+- Çok adımlı iş akışları (örn. webhook işleme, AI cevap üretimi) ayrı
+  adımlara ayrılacak: doğrulama → işleme → kayıt → yan etki (log, bildirim).

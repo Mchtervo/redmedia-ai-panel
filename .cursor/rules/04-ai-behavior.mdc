@@ -1,0 +1,64 @@
+---
+description: Yapay zekâ davranış kuralları - fiyat, hizmet, insan onayı, loglama
+alwaysApply: true
+---
+
+# AI Davranış Kuralları
+
+Bu kurallar, müşteriyle konuşan veya karar üreten her AI özelliği
+(ChatPlace otomasyonu, öneri motoru, analiz modülü) için geçerlidir ve
+güvenlik/iş riski taşıdığından **taviz verilmeden** uygulanacaktır.
+
+## Fiyat ve Hizmet Sınırları
+
+- AI hiçbir zaman fiyat **uyduramaz**. Fiyat bilgisi yalnızca kaynak
+  işletme verisinden (Supabase'de tanımlı, doğrulanmış fiyat/hizmet bilgisi)
+  gelecek; AI'nin tahmin veya genelleme ile fiyat üretmesi engellenecek.
+- AI, Redmedia'nın **sunmadığı bir hizmeti** var gibi sunamaz veya öneremez.
+  Hizmet listesi kaynak veriyle sınırlıdır.
+- AI cevabı üretmeden önce ilgili fiyat/hizmet bilgisinin kaynakta mevcut
+  olup olmadığı kontrol edilecek; bilgi yoksa AI "bilmiyorum" / insana
+  yönlendirme cevabı verecek, tahmine dayalı cevap üretmeyecek.
+
+## İnsan Onayı Gereken Durumlar
+
+Aşağıdaki durumlarda AI **doğrudan cevap veremez/işlem yapamaz**; talep bir
+insan onayına (yetkili personel) yönlendirilecek:
+
+- Şikâyet (müşteri memnuniyetsizliği, olumsuz geri bildirim)
+- İndirim talebi
+- İptal talebi (sipariş/randevu/hizmet iptali)
+- Özel fiyat/pazarlık talebi
+
+AI bu durumlarda müşteriye "talebiniz ilgili ekibe iletildi" türünde nötr bir
+ara cevap verebilir, ancak nihai kararı kendisi vermeyecek.
+
+## Loglama
+
+- Her AI cevabı (girdi, çıktı, kullanılan model, zaman damgası, ilgili
+  müşteri/konuşma referansı) Supabase'de loglanacak.
+- Log kaydı olmadan üretilen bir AI cevabı müşteriye gönderilmeyecek.
+- Loglarda hassas veri gösterilmemesi kuralı (`02-security.mdc`) burada da
+  geçerlidir; log içeriği maskeleme/erişim kısıtlaması ile korunacak.
+
+## Kaynak Temelli Cevap (Grounding)
+
+- AI cevapları, Redmedia'nın kaynak işletme bilgilerine (hizmetler, fiyatlar,
+  politikalar, SSS) dayanacak; kaynakta olmayan bilgiyle serbestçe
+  "halüsinasyon" üretmeyecek.
+- Kaynak veri güncellendiğinde AI'nin kullandığı bağlam da güncel kaynaktan
+  okunacak; eski/statik bir kopya üzerinden cevap üretilmeyecek.
+
+## Müşteri Hafızası
+
+- Müşteriyle ilgili geçmiş konuşma/bağlam bilgisi (müşteri hafızası)
+  Supabase'de saklanacak; yalnızca süreç içi bellekte (in-memory) tutulup
+  kalıcı olmayan bir çözüm kullanılmayacak.
+- Müşteri hafızasına erişim de diğer müşteri verileri gibi RLS ile
+  korunacak (`02-security.mdc`, `03-database.mdc`).
+
+## Meta Reklamlarına Özel Sınırlar
+
+- AI, reklam bütçesini veya durumunu (aç/kapa) kendi başına değiştiremez;
+  yalnızca analiz ve öneri üretir (bkz. `docs/META.md`).
+- Bütçe değişikliği önerisi insan onayından geçmeden uygulanmayacak.

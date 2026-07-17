@@ -1,0 +1,55 @@
+---
+description: Supabase veritabanı konvansiyonları (henüz kurulmadı - ileriye dönük kurallar)
+alwaysApply: true
+---
+
+# Veritabanı Kuralları (Supabase)
+
+> Veritabanı henüz oluşturulmadı. Bu kurallar, veritabanı kurulduğunda ve her
+> yeni tablo/migration eklendiğinde geçerli olacak standartları tanımlar.
+> Talep gelmeden şema/tablo/migration oluşturulmayacak.
+
+## Genel
+
+- Veritabanı: Supabase (PostgreSQL).
+- Şema değişiklikleri her zaman migration dosyası ile yapılacak
+  (`supabase/migrations`); Supabase Studio üzerinden manuel, migration'sız
+  değişiklik yapılmayacak.
+- Her migration tek bir mantıksal değişikliği temsil edecek (bir tablo, bir
+  ilişki, bir politika grubu); birden fazla alakasız değişiklik aynı
+  migration'da birleştirilmeyecek.
+
+## İsimlendirme
+
+- Tablo ve kolon adları `snake_case` olacak.
+- Tablo adları çoğul olacak (`customers`, `conversations`, `ai_responses`).
+- Yabancı anahtar kolonları `<tekil_tablo_adı>_id` formatında olacak
+  (`customer_id`, `conversation_id`).
+- Zaman damgası kolonları `created_at` / `updated_at` standardında olacak.
+
+## RLS
+
+- Kullanıcı/müşteri verisi içeren her tablo, oluşturulduğu migration içinde
+  RLS ile birlikte etkinleştirilecek (bkz. `02-security.mdc`).
+- RLS politikası olmayan, herkese açık (`public`) bir kullanıcı verisi tablosu
+  olmayacak.
+
+## Tip Güvenliği
+
+- Veritabanı şemasından üretilen TypeScript tipleri kullanılacak; şema ile
+  elle yazılmış, senkron olmayan tipler çoğaltılmayacak.
+- Sorgu sonuçları `any` ile tiplenmeyecek (bkz. `01-code-quality.mdc`).
+
+## Erişim Katmanı
+
+- Veritabanına doğrudan erişim, sayfa/bileşen içinden değil, ayrılmış bir
+  erişim katmanından (`src/lib/supabase` veya modül bazlı `*/data` dosyaları)
+  yapılacak; sorgu mantığı UI koduna yayılmayacak.
+- Service role client ile yapılan sorgular yalnızca sunucu tarafı erişim
+  katmanında bulunacak (bkz. `02-security.mdc`).
+
+## Kapsam
+
+- Bu depoya yalnızca Redmedia'nın ihtiyacı olan tablolar eklenecek (müşteri,
+  konuşma, kampanya, AI cevabı/log vb.); genel amaçlı veya varsayımsal
+  "ileride lazım olabilir" tablo eklenmeyecek.

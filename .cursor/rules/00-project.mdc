@@ -1,0 +1,48 @@
+---
+description: Redmedia AI Panel proje kapsamı, kimliği ve teknoloji yığını
+alwaysApply: true
+---
+
+# Proje Kimliği
+
+Bu depo **yalnızca Redmedia AI Panel** projesidir. Redmedia'nın Instagram ve
+Facebook müşterilerini, ChatPlace otomasyonlarını, Meta reklamlarını, müşteri
+konuşmalarını, satış dönüşümlerini ve yapay zekâ analizlerini **tek panelden**
+yönetmek için üretim kalitesinde bir yönetim panelidir.
+
+## Kapsam Dışı (Asla Ekleme)
+
+- Redmedia dışında başka bir işletme/marka için modül veya sayfa eklenmeyecek.
+- Lojistik, kargo takibi, araç kiralama, e-ticaret gibi alakasız iş
+  alanlarına ait özellik, tablo, model veya sayfa eklenmeyecek.
+- Bu depo genel amaçlı bir "SaaS şablonu" değildir; her karar Redmedia'nın
+  gerçek ihtiyacına göre alınır. Genel/soyut/"gelecekte başka müşteri de
+  kullanabilir" mantığıyla gereksiz esneklik eklenmeyecek.
+
+## Teknoloji Yığını (Sabit)
+
+- Next.js (güncel kararlı sürüm), App Router
+- TypeScript, `strict: true`
+- Tailwind CSS
+- ESLint (proje kurallarına uyumlu, hatasız)
+- `src/` klasör yapısı, `@/*` import alias
+- Paket yöneticisi: npm (yarn/pnpm/bun kullanılmayacak)
+- Veritabanı: Supabase (ileride bağlanacak)
+- Entegrasyonlar: Meta Graph API, ChatPlace, OpenAI (ileride bağlanacak)
+
+Bu yığın değiştirilmeyecek. Yeni bir framework, state management kütüphanesi
+veya CSS çözümü önerilmeyecek; mevcut yığınla çözüm üretilecek.
+
+## Mevcut Durum
+
+Proje şu an yalnızca temel Next.js iskeletindedir (bkz. `docs/ROADMAP.md`).
+Supabase, Meta API, ChatPlace, OpenAI bağlantıları, gerçek API anahtarları ve
+veritabanı şeması **henüz eklenmemiştir**. Bu entegrasyonlar açıkça istenmeden
+kodlanmayacak.
+
+## Referans Dokümantasyon
+
+Detaylar için `docs/` klasörüne bakılacak: `PROJECT.md`, `ARCHITECTURE.md`,
+`DATABASE.md`, `CHATPLACE.md`, `META.md`, `AI.md`, `SECURITY.md`,
+`ROADMAP.md`. Kod ile dokümantasyon çelişirse önce gerçek kod esas alınır,
+sonra dokümantasyon güncellenir.

@@ -1,0 +1,51 @@
+---
+description: Arayüz kuralları - Türkçe, responsive, sade/premium, erişilebilirlik
+alwaysApply: true
+---
+
+# Arayüz (UI) Kuralları
+
+## Dil
+
+- Tüm kullanıcıya görünen metinler (etiket, buton, hata mesajı, boş durum
+  metni, tooltip) **Türkçe** olacak.
+- Kod içindeki değişken/fonksiyon adları İngilizce kalabilir; yalnızca
+  kullanıcıya görünen metinler Türkçe olacak.
+
+## Responsive Tasarım
+
+- Her ekran hem masaüstü hem mobil genişlikte kullanılabilir olacak.
+- Tablo, kart ve grafik gibi veri yoğun bileşenler mobilde de okunabilir
+  kalacak şekilde tasarlanacak (gerekirse mobilde yatay kaydırma, kart
+  görünümüne düşme gibi çözümler kullanılacak).
+
+## Görsel Dil
+
+- Tasarım sade, premium ve profesyonel olacak; gereksiz görsel karmaşadan
+  (fazla renk, gölge, dekoratif öge) kaçınılacak.
+- Gereksiz animasyon eklenmeyecek. Animasyon yalnızca işlevsel geri bildirim
+  için kullanılabilir (yükleniyor durumu, geçiş netliği); dekoratif/gösteriş
+  amaçlı animasyon kullanılmayacak.
+- Tutarlı bir boşluk (spacing), tipografi ve renk sistemi kullanılacak;
+  bileşenler arasında rastgele/tutarsız stil uygulanmayacak.
+
+## Erişilebilirlik
+
+- Semantik HTML kullanılacak (`button`, `nav`, `table`, `label` vb. uygun
+  yerlerde kullanılacak; her şey `div`'e boğulmayacak).
+- Etkileşimli her öge klavye ile erişilebilir olacak (tab sırası, focus
+  görünürlüğü korunacak).
+- Görsel olmayan/ikon içeren butonlarda erişilebilir isim (`aria-label`)
+  bulunacak.
+- Renk kontrastı okunabilirlik standartlarını karşılayacak; bilgi yalnızca
+  renkle değil, ek olarak metin/ikonla da iletilecek.
+
+## Tablo ve Grafikler
+
+- Tablolar büyük veri setlerinde sayfalama, sıralama veya filtreleme ile
+  okunabilir tutulacak; tek sayfada aşırı yoğun veri gösterilmeyecek.
+- Grafik türü gösterilen veriye uygun seçilecek (örn. zaman serisi için
+  çizgi grafik, karşılaştırma için bar grafik); veriyi yanıltacak ölçek/
+  görselleştirme kullanılmayacak.
+- Sayısal veriler (fiyat, oran, tarih) tutarlı bir biçimde (Türkçe yerelleştirme,
+  binlik ayraç, tarih formatı) gösterilecek.
