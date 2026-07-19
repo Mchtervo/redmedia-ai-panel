@@ -5,6 +5,7 @@
 
 import type { DecisionPack, StrategyId } from "@/features/ai/services/decision-engine.service";
 import { isInformalChitchat } from "@/features/ai/services/message-intent";
+import type { ShortReplyResolution } from "@/features/ai/services/short-reply-context.service";
 
 export const REPLY_SLOT_IDS = [
   "hook",
@@ -80,28 +81,27 @@ const TEMPLATES: Record<StrategyId, ReplyTemplate> = {
       value: "Premium'da kapora ve plato dahil; dump yok, net paket.",
       proof: "Benzer tarihte çeken çiftlerde genelde video ağırlığı öne çıkıyor.",
       question: "Sizin için albüm mü önde, yoksa daha çok video mu?",
-      cta: "Tarihinizi yazın, ona göre netleştirelim.",
+      cta: "Hangisine yakınsanız yazın.",
     },
   },
   TRUST_BUILD_v2: {
     strategyId: "TRUST_BUILD_v2",
-    requireCta: true,
+    requireCta: false,
     requireReference: true,
     requireQuestion: true,
     allowPrice: false,
-    maxWords: 90,
+    maxWords: 80,
     parts: [
       { type: "slot", slot: "hook" },
       { type: "slot", slot: "proof" },
       { type: "slot", slot: "question" },
-      { type: "slot", slot: "cta" },
     ],
     defaults: {
       hook: "Anladım.",
       value: "",
-      proof: "İsterseniz benzer bir çekimden kısa bir örnek kesit atayım.",
+      proof: "İsterseniz benzer bir çekimden kısa örnek atayım.",
       question: "Daha sinematik mi bakıyorsunuz, yoksa sade mi?",
-      cta: "Örnek isterseniz yazın, atayım.",
+      cta: "",
     },
   },
   GIVE_PRICE_SHORT_v2: {
@@ -123,27 +123,27 @@ const TEMPLATES: Record<StrategyId, ReplyTemplate> = {
       price_line:
         "Basic 11.000, Premium Albümlü 14.000, Elite 21.000 TL.",
       question: "Albüm sizin için önemli mi, yoksa daha çok video tarafı mı?",
-      cta: "Hangisine yakınsınız yazın, ona göre devam edelim.",
+      cta: "Hangisine yakınsanız yazın.",
     },
   },
   SHOW_EXAMPLE_v1: {
     strategyId: "SHOW_EXAMPLE_v1",
-    requireCta: true,
+    requireCta: false,
     requireReference: true,
     requireQuestion: true,
     allowPrice: false,
-    maxWords: 80,
+    maxWords: 70,
     parts: [
+      { type: "slot", slot: "hook" },
       { type: "slot", slot: "proof" },
       { type: "slot", slot: "question" },
-      { type: "slot", slot: "cta" },
     ],
     defaults: {
-      hook: "",
+      hook: "Tabii.",
       value: "",
-      proof: "Benzer bir düğünden 1 kısa referans kesit gönderebilirim.",
-      question: "Dış çekim mi, yoksa salona mı daha yakın bakıyorsunuz?",
-      cta: "Örnek kesiti atmamı isterseniz yazın.",
+      proof: "Size uygun kısa bir örnek paylaşayım.",
+      question: "Daha doğal mı, sinematik mi bakıyorsunuz?",
+      cta: "",
     },
   },
   OBJECTION_RESOLVE_v2: {
@@ -165,8 +165,8 @@ const TEMPLATES: Record<StrategyId, ReplyTemplate> = {
       empathy: "Karşılaştırma yapmanız normal.",
       value: "Bizde tek ekip + kurgu birlikte yürüyor.",
       proof: "Benzer organizasyonlarda bu farkı referans kesitte de görebiliyorsunuz.",
-      question: "Tarihiniz net mi?",
-      cta: "Yazın, size özel net teklif çıkarayım.",
+      question: "Tarih tarafı net mi sizde?",
+      cta: "Netleşince yazın, özel teklifi çıkarayım.",
     },
   },
   EMPATHY_HOLD_v1: {
@@ -228,27 +228,7 @@ const TEMPLATES: Record<StrategyId, ReplyTemplate> = {
   },
   INFO_ONE_QUESTION_v2: {
     strategyId: "INFO_ONE_QUESTION_v2",
-    requireCta: true,
-    requireReference: false,
-    requireQuestion: true,
-    allowPrice: false,
-    maxWords: 60,
-    parts: [
-      { type: "slot", slot: "hook" },
-      { type: "slot", slot: "question" },
-      { type: "slot", slot: "cta" },
-    ],
-    defaults: {
-      hook: "Anladım.",
-      value: "",
-      proof: "",
-      question: "Düğün tarihiniz net mi?",
-      cta: "Yazın, ona göre devam edelim.",
-    },
-  },
-  DATE_CONFIRM_v1: {
-    strategyId: "DATE_CONFIRM_v1",
-    requireCta: true,
+    requireCta: false,
     requireReference: false,
     requireQuestion: true,
     allowPrice: false,
@@ -256,14 +236,32 @@ const TEMPLATES: Record<StrategyId, ReplyTemplate> = {
     parts: [
       { type: "slot", slot: "hook" },
       { type: "slot", slot: "question" },
-      { type: "slot", slot: "cta" },
     ],
     defaults: {
-      hook: "O tarih güzel.",
+      hook: "Tamamdır.",
       value: "",
       proof: "",
-      question: "Mekân belli mi?",
-      cta: "Yazın, not düşeyim.",
+      question: "Sizin için en önemlisi ne — tarih mi, çekim tarzı mı?",
+      cta: "",
+    },
+  },
+  DATE_CONFIRM_v1: {
+    strategyId: "DATE_CONFIRM_v1",
+    requireCta: false,
+    requireReference: false,
+    requireQuestion: true,
+    allowPrice: false,
+    maxWords: 55,
+    parts: [
+      { type: "slot", slot: "hook" },
+      { type: "slot", slot: "question" },
+    ],
+    defaults: {
+      hook: "Not aldım.",
+      value: "",
+      proof: "",
+      question: "Çekim dış çekim mi olacak?",
+      cta: "",
     },
   },
   WAIT_SPACE_v1: {
@@ -275,7 +273,7 @@ const TEMPLATES: Record<StrategyId, ReplyTemplate> = {
     maxWords: 35,
     parts: [{ type: "slot", slot: "hook" }],
     defaults: {
-      hook: "Tamam, siz netleşince yazın yeter.",
+      hook: "Tamamdır. Aklınıza takılanı yazabilirsiniz.",
       value: "",
       proof: "",
       question: "",
@@ -288,10 +286,25 @@ export function getReplyTemplate(strategyId: StrategyId): ReplyTemplate {
   return TEMPLATES[strategyId];
 }
 
+export type TemplateContext = {
+  customerMessage?: string;
+  shortReply?: ShortReplyResolution | null;
+  dateHint?: string | null;
+  lastAiReply?: string | null;
+};
+
+/**
+ * Strategy + kısa cevap bağlamına göre slot defaults (sabit satış cümlesi yok).
+ */
 export function getTemplateForDecision(
   pack: DecisionPack,
-  customerMessage?: string
+  customerMessageOrCtx?: string | TemplateContext
 ): ReplyTemplate {
+  const ctx: TemplateContext =
+    typeof customerMessageOrCtx === "string" || customerMessageOrCtx == null
+      ? { customerMessage: customerMessageOrCtx }
+      : customerMessageOrCtx;
+
   const base = getReplyTemplate(pack.strategyId);
   const template: ReplyTemplate = {
     ...base,
@@ -300,16 +313,101 @@ export function getTemplateForDecision(
     maxWords: Math.min(base.maxWords, pack.maxWords),
   };
 
+  const msg = ctx.customerMessage?.trim() ?? "";
+  const short = ctx.shortReply;
+  const dateHint = ctx.dateHint?.trim() || null;
+  const resolvedDate =
+    short?.kind === "date_answer"
+      ? short.resolvedValue
+      : dateHint;
+
   if (
     pack.strategyId === "GREETING_ACK_v1" &&
-    customerMessage &&
-    isInformalChitchat(customerMessage)
+    msg &&
+    isInformalChitchat(msg)
   ) {
     template.defaults = {
       ...template.defaults,
       hook: "İyidir.",
       question: "Çekim için mi yazdınız, yoksa bir şey mi soracaktınız?",
     };
+  }
+
+  if (pack.strategyId === "DATE_CONFIRM_v1") {
+    const label = resolvedDate || msg || "o tarih";
+    template.defaults = {
+      ...template.defaults,
+      hook: `${label} için önce müsaitliği kontrol edelim.`,
+      question: "Çekim dış çekim mi olacak?",
+      cta: "",
+    };
+  }
+
+  if (pack.strategyId === "SHOW_EXAMPLE_v1") {
+    template.defaults = {
+      ...template.defaults,
+      hook: "Tabii.",
+      proof: "Size uygun kısa bir örnek paylaşayım.",
+      question: "Daha doğal mı, sinematik mi bakıyorsunuz?",
+      cta: "",
+    };
+  }
+
+  if (pack.strategyId === "INFO_ONE_QUESTION_v2") {
+    if (short?.kind === "agreement" || short?.kind === "unclear") {
+      if (dateHint) {
+        template.defaults = {
+          ...template.defaults,
+          hook: "Tamamdır.",
+          question: "Çekim tarzında doğal mı, daha sinematik mi istersiniz?",
+          cta: "",
+        };
+      } else if (short.answeredTopic === "style") {
+        template.defaults = {
+          ...template.defaults,
+          hook: "Anladım.",
+          question: "Tarih tarafı net mi sizde?",
+          cta: "",
+        };
+      } else if (short.answeredTopic === "none" || !short.previousAiQuestion) {
+        template.defaults = {
+          ...template.defaults,
+          hook: "Tamamdır.",
+          question: "Aklınıza takılan bir şey var mı?",
+          cta: "",
+        };
+        template.requireQuestion = false;
+        template.parts = [{ type: "slot", slot: "hook" }];
+      } else {
+        template.defaults = {
+          ...template.defaults,
+          hook: "Tamamdır.",
+          question: "Sizin için en önemlisi ne — tarih mi, çekim tarzı mı?",
+          cta: "",
+        };
+      }
+    } else if (dateHint) {
+      template.defaults = {
+        ...template.defaults,
+        hook: "Anladım.",
+        question: "Çekim tarzında doğal mı, sinematik mi bakıyorsunuz?",
+        cta: "",
+      };
+    }
+  }
+
+  if (pack.strategyId === "WAIT_SPACE_v1") {
+    if (short?.kind === "soft_defer") {
+      template.defaults = {
+        ...template.defaults,
+        hook: "Tamam, siz netleşince yazın yeter.",
+      };
+    } else {
+      template.defaults = {
+        ...template.defaults,
+        hook: "Tamamdır. Aklınıza takılanı yazabilirsiniz.",
+      };
+    }
   }
 
   return template;

@@ -15,6 +15,7 @@ import {
   type ReplySlotValues,
   type ReplyTemplate,
 } from "@/features/ai/services/reply-template.engine";
+import type { ShortReplyResolution } from "@/features/ai/services/short-reply-context.service";
 
 const slotsSchema = z.object({
   hook: z.string().max(120).optional(),
@@ -42,6 +43,8 @@ export async function fillReplySlots(params: {
   pack: DecisionPack;
   customerMessage: string;
   dateHint?: string | null;
+  shortReply?: ShortReplyResolution | null;
+  lastAiReply?: string | null;
 }): Promise<{ slots: ReplySlotValues; model: string | null; usedGpt: boolean }> {
   const needed = listSlotsToFill(params.template);
   if (!isOpenAiConfigured() || needed.length === 0) {
@@ -52,6 +55,7 @@ export async function fillReplySlots(params: {
     .map((s) => `${s}: ${params.template.defaults[s] ?? ""}`)
     .join("\n");
 
+  const short = params.shortReply;
   try {
     const { completion, modelUsed } = await createRoutedChatCompletion(
       "dm_reply",
@@ -63,7 +67,7 @@ export async function fillReplySlots(params: {
           {
             role: "system",
             content:
-              "JSON slot doldur. Serbest mesaj yazma. Anahtarlar dışında alan ekleme. Kısa Türkçe. Fiyat uydurma.",
+              "JSON slot doldur. Serbest mesaj yazma. Anahtarlar dışında alan ekleme. Kısa Türkçe. Fiyat uydurma. Müşterinin verdiği cevabı yok sayma. Tarih zaten verildiyse tekrar tarih sorma.",
           },
           {
             role: "user",
@@ -75,10 +79,17 @@ export async function fillReplySlots(params: {
               `requireReference: ${params.template.requireReference}`,
               `slots: ${needed.join(", ")}`,
               params.dateHint ? `dateHint: ${params.dateHint}` : "",
+              params.lastAiReply
+                ? `previousAiQuestion: ${params.lastAiReply.slice(0, 280)}`
+                : "",
+              short
+                ? `shortReplyKind: ${short.kind}; answeredTopic: ${short.answeredTopic}; resolvedValue: ${short.resolvedValue ?? ""}`
+                : "",
               `customerMessage: ${params.customerMessage.slice(0, 400)}`,
+              "Bağlama uygun slot yaz. Default cümleleri kör kopyalama.",
               "default_hints:",
               defaultsHint,
-              'JSON örn: {"hook":"...","question":"...?","cta":"..."}',
+              'JSON örn: {"hook":"...","question":"...?"}',
             ]
               .filter(Boolean)
               .join("\n"),

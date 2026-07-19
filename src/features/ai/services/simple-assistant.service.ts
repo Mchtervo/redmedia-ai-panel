@@ -468,10 +468,25 @@ export async function generateSimpleAssistantReply(
         replyAb = null;
       }
     }
+    const { resolveShortReplyContext, shortReplyToJson } = await import(
+      "@/features/ai/services/short-reply-context.service"
+    );
+    const shortReply = resolveShortReplyContext({
+      customerMessage: userContent,
+      recentMessages,
+      lastAiReply,
+      dateHint: salesBrain.memory.dateHint,
+    });
+    // Kısa tarih cevabını memory'ye yaz (Sales Brain extract ile birlikte)
+    if (shortReply.kind === "date_answer" && shortReply.resolvedValue) {
+      salesBrain.memory.dateHint = shortReply.resolvedValue;
+    }
+
     if (isConversationStrategistEnabled()) {
       conversationStrategy = decideConversationStrategy({
         brain: salesBrain,
         customerMessage: userContent,
+        shortReply,
       });
       if (replyAb) {
         conversationStrategy = applyReplyAbToStrategy(
@@ -484,6 +499,8 @@ export async function generateSimpleAssistantReply(
         brain: salesBrain,
         customerMessage: userContent,
         conversationStrategy,
+        shortReply,
+        lastAiReply,
       });
       conversationStrategy = decisionPack.conversationStrategy;
     }
@@ -506,6 +523,7 @@ export async function generateSimpleAssistantReply(
         customerMessage: userContent,
         dateHint: salesBrain.memory.dateHint,
         lastAiReply,
+        shortReply,
       });
 
       if (
@@ -569,12 +587,25 @@ export async function generateSimpleAssistantReply(
 
       replyText = templated.reply;
       modelUsed = templated.model ?? `template:${decisionPack.strategyId}`;
+      console.info(
+        "[simple-assistant] template-reply",
+        JSON.stringify({
+          labMode,
+          routedModel: getRoutedModel("dm_reply"),
+          slotModel: templated.model,
+          strategyId: decisionPack.strategyId,
+          shortReplyKind: shortReply.kind,
+          usedFallback: templated.usedFallback,
+        })
+      );
       templateMeta = {
         strategyId: decisionPack.strategyId,
         usedFallback: templated.usedFallback,
         usedGptSlots: templated.usedGptSlots,
         attempts: templated.attempts as unknown as Json,
         validationOk: true,
+        shortReplyKind: shortReply.kind,
+        routedModel: getRoutedModel("dm_reply"),
       };
 
       // Reflect yalnızca memory kapanış kaydı — rewrite YOK (strategy bozulmasın)
@@ -776,9 +807,11 @@ export async function generateSimpleAssistantReply(
         buildCommit,
         routeVersion,
         composerEnabled: Boolean(decisionPack),
+        routedModel: modelUsed,
         customerMessage: userContent,
         labMode,
         emptyContentRetry,
+        shortReply: shortReplyToJson(shortReply) as Json,
         salesBrain: salesBrainToJson(salesBrain) as Json,
         decisionPack: decisionPack
           ? (decisionPackToJson(decisionPack) as Json)

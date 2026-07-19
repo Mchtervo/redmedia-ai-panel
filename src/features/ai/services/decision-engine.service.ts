@@ -11,6 +11,7 @@ import {
   type ConversationStrategy,
 } from "@/features/ai/services/conversation-strategist.service";
 import { hasExplicitPriceIntent } from "@/features/ai/services/message-intent";
+import type { ShortReplyResolution } from "@/features/ai/services/short-reply-context.service";
 
 /** Versioned strategy playbooks — GPT bunları icat etmez. */
 export const STRATEGY_IDS = [
@@ -334,12 +335,28 @@ const SPECS: Record<StrategyId, StrategySpec> = {
   },
 };
 
+function customerAskedReference(message: string): boolean {
+  return /örnek|ornek|referans|portföy|portfoy|kesit\s*at|video\s*var\s*mı/i.test(
+    message
+  );
+}
+
+function messageLooksLikeDateAnswer(message: string): boolean {
+  return /^(yarın|yarin|bugün|bugun|haftaya)|(\d{1,2}\s*(ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)|\d{1,2}[./]\d{1,2})/i.test(
+    message.trim()
+  );
+}
+
 function pickStrategyId(
   move: ConversationMove,
   brain: SalesBrainSnapshot,
   risk: ConversationRisk,
-  message: string
+  message: string,
+  shortReply?: ShortReplyResolution | null
 ): StrategyId {
+  if (shortReply?.suggestedStrategyId) {
+    return shortReply.suggestedStrategyId;
+  }
   if (move === "greeting_ack") return "GREETING_ACK_v1";
   if (move === "empathy_only") return "EMPATHY_HOLD_v1";
   if (move === "wait") return "WAIT_SPACE_v1";
@@ -361,7 +378,7 @@ function pickStrategyId(
   if (move === "no_question") return "WAIT_SPACE_v1";
 
   // ask_one_question
-  if (/\d{1,2}\s*(ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)|\d{1,2}[./]\d{1,2}/i.test(message)) {
+  if (messageLooksLikeDateAnswer(message)) {
     return "DATE_CONFIRM_v1";
   }
   if (
@@ -375,6 +392,68 @@ function pickStrategyId(
 }
 
 /**
+ * Strategy önkoşulları — ihlalde güvenli stratejiye düş.
+ */
+export function enforceStrategyPreconditions(params: {
+  strategyId: StrategyId;
+  brain: SalesBrainSnapshot;
+  customerMessage: string;
+  shortReply?: ShortReplyResolution | null;
+  lastAiReply?: string | null;
+}): { strategyId: StrategyId; rationale: string } {
+  const { brain, customerMessage, shortReply, lastAiReply } = params;
+  let strategyId = params.strategyId;
+  const notes: string[] = [];
+  const msg = customerMessage.trim();
+  const lastAi = lastAiReply ?? shortReply?.previousAiQuestion ?? "";
+
+  const refOfferPending =
+    shortReply?.kind === "agreement" &&
+    shortReply.answeredTopic === "reference_offer";
+  const customerWantsRef = customerAskedReference(msg);
+
+  if (strategyId === "SHOW_EXAMPLE_v1") {
+    if (!customerWantsRef && !refOfferPending) {
+      strategyId = shortReply?.isShort ? "WAIT_SPACE_v1" : "INFO_ONE_QUESTION_v2";
+      notes.push("SHOW_EXAMPLE önkoşul yok → güvenli devam");
+    }
+  }
+
+  if (strategyId === "DATE_CONFIRM_v1") {
+    const hasDateNow =
+      messageLooksLikeDateAnswer(msg) || shortReply?.kind === "date_answer";
+    if (!hasDateNow) {
+      strategyId = "INFO_ONE_QUESTION_v2";
+      notes.push("DATE_CONFIRM için tarih cevabı yok");
+    }
+  }
+
+  if (strategyId === "INFO_ONE_QUESTION_v2") {
+    // Tarih zaten var / bu turda verildi → tekrar tarih sorma stratejisi olmasın
+    const justGaveDate =
+      shortReply?.kind === "date_answer" || messageLooksLikeDateAnswer(msg);
+    if (justGaveDate) {
+      strategyId = "DATE_CONFIRM_v1";
+      notes.push("Tarih cevabı → DATE_CONFIRM");
+    } else if (
+      shortReply?.kind === "unclear" &&
+      shortReply.answeredTopic === "none"
+    ) {
+      strategyId = "WAIT_SPACE_v1";
+      notes.push("Bağlamsız kısa onay → WAIT_SPACE");
+    } else if (brain.memory.dateHint) {
+      notes.push("dateHint mevcut — template tarih sormayacak");
+    }
+  }
+
+  void lastAi;
+  return {
+    strategyId,
+    rationale: notes.length ? notes.join("; ") : "önkoşul OK",
+  };
+}
+
+/**
  * Analiz + strateji seçimi (LLM yok).
  */
 export function decideSalesDecision(params: {
@@ -382,12 +461,15 @@ export function decideSalesDecision(params: {
   customerMessage: string;
   /** Varsa A/B sonrası strategist çıktısı */
   conversationStrategy?: ConversationStrategy;
+  shortReply?: ShortReplyResolution | null;
+  lastAiReply?: string | null;
 }): DecisionPack {
   const strategy =
     params.conversationStrategy ??
     decideConversationStrategy({
       brain: params.brain,
       customerMessage: params.customerMessage,
+      shortReply: params.shortReply,
     });
 
   const upset = looksUpset(params.customerMessage);
@@ -400,12 +482,21 @@ export function decideSalesDecision(params: {
     risk,
   };
 
-  const strategyId = pickStrategyId(
+  let strategyId = pickStrategyId(
     strategy.move,
     params.brain,
     risk,
-    params.customerMessage
+    params.customerMessage,
+    params.shortReply
   );
+  const enforced = enforceStrategyPreconditions({
+    strategyId,
+    brain: params.brain,
+    customerMessage: params.customerMessage,
+    shortReply: params.shortReply,
+    lastAiReply: params.lastAiReply,
+  });
+  strategyId = enforced.strategyId;
   const spec = SPECS[strategyId];
 
   // Sert kapılar: fiyat yalnızca açık niyet + GIVE_PRICE
@@ -440,14 +531,22 @@ export function decideSalesDecision(params: {
     requireCta: spec.requireCta,
     writerBrief: spec.writerBrief,
     naturalExamples: spec.naturalExamples,
-    rationale: `${strategy.rationale} → ${strategyId}`,
+    rationale: `${strategy.rationale} → ${strategyId} (${enforced.rationale})`,
     conversationStrategy: {
       ...strategy,
+      move:
+        strategyId === "WAIT_SPACE_v1"
+          ? "wait"
+          : strategyId === "SHOW_EXAMPLE_v1"
+            ? "show_example"
+            : strategyId === "DATE_CONFIRM_v1"
+              ? "ask_one_question"
+              : strategy.move,
       allowPrice,
       allowQuestion,
       maxLines: Math.max(2, Math.ceil(spec.maxWords / 35)),
       directive: `Strateji ${strategyId}: ${strategy.directive}`,
-      rationale: `${strategy.rationale} → ${strategyId}`,
+      rationale: `${strategy.rationale} → ${strategyId} (${enforced.rationale})`,
     },
   };
 }

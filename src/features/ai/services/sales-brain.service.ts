@@ -378,8 +378,13 @@ function extractBudgetTry(text: string): number | null {
 }
 
 function extractDateHint(text: string): string | null {
-  const m = text.match(
-    /(\d{1,2}\s*(?:ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)(?:\s*\d{4})?)/i
+  const t = text.trim();
+  const relative = t.match(
+    /^(yarın|yarin|bugün|bugun|öbür\s*gün|obur\s*gun|haftaya|gelecek\s*hafta)([\s!.?,]*)?$/i
+  );
+  if (relative?.[1]) return relative[1].trim();
+  const m = t.match(
+    /(\d{1,2}\s*(?:ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)(?:\s*\d{4})?|\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?)/i
   );
   return m?.[1]?.trim() ?? null;
 }

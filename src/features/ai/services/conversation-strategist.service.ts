@@ -9,6 +9,7 @@ import {
   isGreetingOnly,
   isInformalChitchat,
 } from "@/features/ai/services/message-intent";
+import type { ShortReplyResolution } from "@/features/ai/services/short-reply-context.service";
 
 export const CONVERSATION_MOVES = [
   "greeting_ack",
@@ -134,12 +135,14 @@ function asksExample(message: string): boolean {
 export function decideConversationStrategy(params: {
   brain: SalesBrainSnapshot;
   customerMessage: string;
+  shortReply?: ShortReplyResolution | null;
 }): ConversationStrategy {
   const { brain, customerMessage } = params;
   const msg = customerMessage.trim();
   const priceAsk = asksPrice(msg);
   const upset = looksUpset(msg);
   const exampleAsk = asksExample(msg);
+  const short = params.shortReply;
 
   let move: ConversationMove = "ask_one_question";
   let rationale = "Varsayılan: tek soru ile ilerleme.";
@@ -150,6 +153,14 @@ export function decideConversationStrategy(params: {
     rationale = isInformalChitchat(msg)
       ? "Samimi/alakasız giriş — paket satma, kısa sohbet."
       : "Sadece selamlama — fiyat/paket dump YASAK.";
+    const base = MOVE_DIRECTIVES[move];
+    return { move, ...base, rationale };
+  }
+
+  // Kısa cevap bağlamı — NBA show_reference / ask_question'ı ezebilir
+  if (short?.isShort && short.suggestedMove) {
+    move = short.suggestedMove;
+    rationale = `Kısa cevap çözümü: ${short.rationale}`;
     const base = MOVE_DIRECTIVES[move];
     return { move, ...base, rationale };
   }
@@ -189,9 +200,16 @@ export function decideConversationStrategy(params: {
   } else if (priceAsk) {
     move = "give_price";
     rationale = "Doğrudan fiyat sorusu — katalog ile cevap.";
-  } else if (exampleAsk || brain.nextBestAction === "show_reference") {
+  } else if (exampleAsk) {
     move = "show_example";
-    rationale = "Örnek/referans talebi veya NBA.";
+    rationale = "Müşteri açıkça örnek/referans istedi.";
+  } else if (
+    brain.nextBestAction === "show_reference" &&
+    // Kısa belirsiz mesajda NBA referans zorlamasın
+    msg.length > 24
+  ) {
+    move = "show_example";
+    rationale = "NBA show_reference (mesaj yeterince açık).";
   } else if (brain.objective === "resolve_objection") {
     move = "resolve_objection";
     rationale = "İtiraz çözme hedefi.";

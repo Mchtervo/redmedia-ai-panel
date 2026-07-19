@@ -4,6 +4,7 @@
 
 import type { DecisionPack } from "@/features/ai/services/decision-engine.service";
 import type { ReplyTemplate } from "@/features/ai/services/reply-template.engine";
+import type { ShortReplyResolution } from "@/features/ai/services/short-reply-context.service";
 
 export type ValidationViolation =
   | "missing_cta"
@@ -11,6 +12,7 @@ export type ValidationViolation =
   | "question_count"
   | "price_not_allowed"
   | "strategy_drift"
+  | "semantic_relevance"
   | "too_long"
   | "empty";
 
@@ -109,10 +111,84 @@ export function countQuestionsSemantic(text: string): number {
   return 0;
 }
 
+const DATE_QUESTION_RE =
+  /(tarih(?:iniz)?\s*net|hangi\s*tarih|ne\s*zaman|düğün\s*tarih|dugun\s*tarih)/i;
+
+/**
+ * Cevap müşteri mesajı + önceki AI sorusuyla mantıken bağlı mı?
+ */
+export function validateSemanticRelevance(params: {
+  reply: string;
+  pack: DecisionPack;
+  customerMessage: string;
+  shortReply?: ShortReplyResolution | null;
+  dateHint?: string | null;
+}): ReplyValidationResult {
+  const text = params.reply.trim();
+  const msg = params.customerMessage.trim();
+  const short = params.shortReply;
+  const violations: ValidationViolation[] = [];
+  const detail: string[] = [];
+
+  if (short?.kind === "date_answer" || /^(yarın|yarin|bugün|bugun)\b/i.test(msg)) {
+    if (DATE_QUESTION_RE.test(text)) {
+      violations.push("semantic_relevance");
+      detail.push("Tarih cevabı verildi; AI yeniden tarih soruyor.");
+    }
+    if (params.pack.strategyId === "SHOW_EXAMPLE_v1") {
+      violations.push("semantic_relevance");
+      detail.push("Tarih cevabında SHOW_EXAMPLE seçilmiş.");
+    }
+  }
+
+  if (params.dateHint && DATE_QUESTION_RE.test(text)) {
+    violations.push("semantic_relevance");
+    detail.push("Memory'de tarih varken tekrar tarih soruluyor.");
+  }
+
+  if (
+    params.pack.strategyId === "SHOW_EXAMPLE_v1" &&
+    short?.isShort &&
+    short.answeredTopic !== "reference_offer" &&
+    !/örnek|ornek|referans/i.test(msg)
+  ) {
+    violations.push("semantic_relevance");
+    detail.push("Referans istemeden SHOW_EXAMPLE.");
+  }
+
+  if (
+    short?.kind === "unclear" &&
+    short.answeredTopic === "none" &&
+    (DATE_QUESTION_RE.test(text) ||
+      /11\.?000|14\.?000|21\.?000|kapora|paket/i.test(text) ||
+      /referans|örnek kesit|ornek kesit/i.test(text))
+  ) {
+    violations.push("semantic_relevance");
+    detail.push("Bağlamsız kısa onayda satış/tarih/referans hamlesi.");
+  }
+
+  if (
+    short?.kind === "agreement" &&
+    short.answeredTopic === "reference_offer" &&
+    DATE_QUESTION_RE.test(text)
+  ) {
+    violations.push("semantic_relevance");
+    detail.push("Referans onayında tarih sorusu patladı.");
+  }
+
+  if (violations.length > 0) {
+    return { ok: false, violations, detail };
+  }
+  return { ok: true };
+}
+
 export function validateTemplatedReply(params: {
   reply: string;
   template: ReplyTemplate;
   pack: DecisionPack;
+  customerMessage?: string;
+  shortReply?: ShortReplyResolution | null;
+  dateHint?: string | null;
 }): ReplyValidationResult {
   const { reply, template, pack } = params;
   const text = reply.trim();
@@ -192,6 +268,20 @@ export function validateTemplatedReply(params: {
   if (drift) {
     violations.push("strategy_drift");
     detail.push(drift);
+  }
+
+  if (params.customerMessage) {
+    const semantic = validateSemanticRelevance({
+      reply: text,
+      pack,
+      customerMessage: params.customerMessage,
+      shortReply: params.shortReply,
+      dateHint: params.dateHint,
+    });
+    if (!semantic.ok) {
+      violations.push(...semantic.violations);
+      detail.push(...semantic.detail);
+    }
   }
 
   if (violations.length > 0) {

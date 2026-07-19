@@ -18,6 +18,7 @@ import {
   type ReplyValidationResult,
   type ValidationViolation,
 } from "@/features/ai/services/reply-validator.service";
+import type { ShortReplyResolution } from "@/features/ai/services/short-reply-context.service";
 
 export type TemplatedReplyResult = {
   reply: string;
@@ -42,26 +43,37 @@ export async function generateTemplatedReply(params: {
   dateHint?: string | null;
   /** Aynı conversation'da son AI cevabı — duplicate engeli */
   lastAiReply?: string | null;
+  shortReply?: ShortReplyResolution | null;
 }): Promise<TemplatedReplyResult> {
-  let template = getTemplateForDecision(
-    params.pack,
-    params.customerMessage
-  );
+  let template = getTemplateForDecision(params.pack, {
+    customerMessage: params.customerMessage,
+    shortReply: params.shortReply,
+    dateHint: params.dateHint,
+    lastAiReply: params.lastAiReply,
+  });
   const attempts: TemplatedReplyResult["attempts"] = [];
+
+  const validate = (reply: string) =>
+    validateTemplatedReply({
+      reply,
+      template,
+      pack: params.pack,
+      customerMessage: params.customerMessage,
+      shortReply: params.shortReply,
+      dateHint: params.dateHint,
+    });
 
   const filled = await fillReplySlots({
     template,
     pack: params.pack,
     customerMessage: params.customerMessage,
     dateHint: params.dateHint,
+    shortReply: params.shortReply,
+    lastAiReply: params.lastAiReply,
   });
 
   let reply = composeReplyFromTemplate(template, filled.slots);
-  let validation = validateTemplatedReply({
-    reply,
-    template,
-    pack: params.pack,
-  });
+  let validation = validate(reply);
 
   attempts.push({
     source: "gpt_slots",
@@ -71,12 +83,8 @@ export async function generateTemplatedReply(params: {
   let usedFallback = false;
   if (!validation.ok) {
     usedFallback = true;
-    reply = stageSafeFallback(params.pack, template);
-    validation = validateTemplatedReply({
-      reply,
-      template,
-      pack: params.pack,
-    });
+    reply = stageSafeFallback(params.pack, template, params.shortReply);
+    validation = validate(reply);
     attempts.push({
       source: "stage_fallback",
       violations: validation.ok ? [] : validation.violations,
@@ -99,11 +107,7 @@ export async function generateTemplatedReply(params: {
         ...template.defaults,
         ...alt,
       });
-      validation = validateTemplatedReply({
-        reply,
-        template,
-        pack: params.pack,
-      });
+      validation = validate(reply);
       attempts.push({
         source: "defaults",
         violations: validation.ok ? [] : validation.violations,
@@ -123,46 +127,29 @@ export async function generateTemplatedReply(params: {
   };
 }
 
-/** Validator fail → asla fiyat şablonuna düşme. */
+/** Validator fail → asla fiyat/tarih dump'a düşme. */
 function stageSafeFallback(
   pack: DecisionPack,
-  template: ReplyTemplate
+  template: ReplyTemplate,
+  shortReply?: ShortReplyResolution | null
 ): string {
+  if (shortReply?.kind === "date_answer" && shortReply.resolvedValue) {
+    return `${shortReply.resolvedValue} için not aldım. Çekim dış çekim mi olacak?`;
+  }
   if (
-    pack.strategyId === "GREETING_ACK_v1" ||
-    pack.move === "greeting_ack" ||
-    pack.move === "ask_one_question"
+    shortReply?.kind === "unclear" ||
+    shortReply?.kind === "agreement" ||
+    pack.strategyId === "WAIT_SPACE_v1"
   ) {
-    return composeDeterministicFallback(
-      pack.strategyId === "GREETING_ACK_v1"
-        ? template
-        : {
-            ...template,
-            strategyId: "GREETING_ACK_v1",
-            allowPrice: false,
-            requireCta: false,
-            requireReference: false,
-            requireQuestion: true,
-            maxWords: 35,
-            parts: [
-              { type: "slot", slot: "hook" },
-              { type: "slot", slot: "question" },
-            ],
-            defaults: {
-              hook: "Merhaba.",
-              value: "",
-              proof: "",
-              question: "Nasıl bir çekim bakıyorsunuz?",
-              cta: "",
-            },
-          }
-    );
+    return "Tamamdır. Aklınıza takılanı yazabilirsiniz.";
+  }
+  if (pack.strategyId === "GREETING_ACK_v1" || pack.move === "greeting_ack") {
+    return composeDeterministicFallback(template);
   }
 
   if (pack.strategyId === "GIVE_PRICE_SHORT_v2" && pack.allowPrice) {
     return composeDeterministicFallback(template);
   }
 
-  // Trust / diğer — kısa discovery, fiyat yok
-  return "Anladım. Sizin için en önemlisi ne — tarih mi, yoksa çekim tarzı mı?";
+  return "Tamamdır. Aklınıza takılanı yazabilirsiniz.";
 }
