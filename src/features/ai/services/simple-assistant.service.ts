@@ -762,11 +762,20 @@ export async function generateSimpleAssistantReply(
       };
     }
 
+    const buildCommit =
+      process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
+      process.env.GIT_COMMIT_SHA?.trim() ||
+      null;
+    const routeVersion = "chatplace_webhook→generateSimpleAssistantReply→v1";
+
     const resultPayload: Json = {
       input: {
         engine: decisionPack
           ? "redmedia_template_engine_v1"
           : "redmedia_legacy_prompt_v1",
+        buildCommit,
+        routeVersion,
+        composerEnabled: Boolean(decisionPack),
         customerMessage: userContent,
         labMode,
         emptyContentRetry,

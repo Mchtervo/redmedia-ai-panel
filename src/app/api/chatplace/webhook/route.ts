@@ -100,12 +100,30 @@ export async function POST(request: NextRequest) {
         ? result.reply.trim()
         : "";
     const sendReply = Boolean(replyText);
+    const buildCommit =
+      process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
+      process.env.GIT_COMMIT_SHA?.trim() ||
+      null;
+    // Debug: ChatPlace/log ile production zincirini doğrulamak için
+    // (müşteriye gitmez; yalnızca webhook JSON yanıtında).
+    console.info(
+      "[chatplace-webhook] reply-debug",
+      JSON.stringify({
+        buildCommit,
+        routeVersion: "chatplace_webhook→generateSimpleAssistantReply→v1",
+        outcome: result.outcome,
+        sendReply,
+        replyPreview: replyText.slice(0, 120),
+      })
+    );
     return NextResponse.json(
       apiSuccess({
         outcome: result.outcome,
         webhookEventId: result.webhookEventId,
         reply: replyText,
         sendReply,
+        buildCommit,
+        routeVersion: "chatplace_webhook→generateSimpleAssistantReply→v1",
       }),
       { status: 200 }
     );
