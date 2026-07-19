@@ -142,8 +142,15 @@ ChatPlace otomasyonunda önerilen sıra:
 
 1. **Save message** → `lastMessage` (veya kendi değişken adın)
 2. **Harici istek** → `POST .../api/chatplace/webhook` (mevcut body + token)
-3. **Yanıt eşleme** → `data.reply` → örn. değişken `aiReply`
-4. **Mesaj** bloğu → metin: `{{ aiReply }}` (picker ile seç)
+3. **Yanıt eşleme** (zorunlu iki alan):
+   - `data.reply` → `aiReply` (string; başarısız/kapalıysa `""`)
+   - `data.sendReply` → `sendReply` (boolean)
+4. **Koşul** → yalnız `sendReply == true` (veya aiReply boş değil) iken Mesaj
+5. **Mesaj** bloğu → metin: `{{ aiReply }}`
+
+> `data.reply` omit edilirse ChatPlace eski `aiReply` değerini
+> temizlemez ve önceki pitch tekrar gider. API artık her zaman
+> `reply` + `sendReply` döner.
 
 Not: ChatPlace'in kamuya açık bir "mesaj gönder" REST API'si dokümante
 değildir; Instagram'a iletim bu Mesaj bloğu ile yapılır. Panel DB'sine AI

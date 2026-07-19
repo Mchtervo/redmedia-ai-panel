@@ -93,14 +93,19 @@ export async function POST(request: NextRequest) {
     }
 
     // processed | duplicate | ignored → 200 (ChatPlace tekrar denemesin).
-    // `reply`: ChatPlace Yanıt eşleme → Mesaj bloğu için AI cevabı.
+    // reply + sendReply HER ZAMAN döner — alan yoksa ChatPlace eski aiReply
+    // değişkenini koruyup tekrar gönderebiliyordu (12k pitch stale bug).
+    const replyText =
+      "reply" in result && typeof result.reply === "string"
+        ? result.reply.trim()
+        : "";
+    const sendReply = Boolean(replyText);
     return NextResponse.json(
       apiSuccess({
         outcome: result.outcome,
         webhookEventId: result.webhookEventId,
-        ...("reply" in result && result.reply
-          ? { reply: result.reply }
-          : {}),
+        reply: replyText,
+        sendReply,
       }),
       { status: 200 }
     );
