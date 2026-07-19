@@ -18,7 +18,10 @@ import {
   type ReplyValidationResult,
   type ValidationViolation,
 } from "@/features/ai/services/reply-validator.service";
-import type { ShortReplyResolution } from "@/features/ai/services/short-reply-context.service";
+import {
+  aiAlreadyOfferedReference,
+  type ShortReplyResolution,
+} from "@/features/ai/services/short-reply-context.service";
 
 export type TemplatedReplyResult = {
   reply: string;
@@ -41,15 +44,23 @@ export async function generateTemplatedReply(params: {
   pack: DecisionPack;
   customerMessage: string;
   dateHint?: string | null;
+  styleHint?: string | null;
   /** Aynı conversation'da son AI cevabı — duplicate engeli */
   lastAiReply?: string | null;
   shortReply?: ShortReplyResolution | null;
+  referenceAlreadyOffered?: boolean;
 }): Promise<TemplatedReplyResult> {
+  const referenceAlreadyOffered =
+    params.referenceAlreadyOffered ??
+    aiAlreadyOfferedReference(params.lastAiReply);
+
   let template = getTemplateForDecision(params.pack, {
     customerMessage: params.customerMessage,
     shortReply: params.shortReply,
     dateHint: params.dateHint,
+    styleHint: params.styleHint,
     lastAiReply: params.lastAiReply,
+    referenceAlreadyOffered,
   });
   const attempts: TemplatedReplyResult["attempts"] = [];
 
@@ -61,6 +72,8 @@ export async function generateTemplatedReply(params: {
       customerMessage: params.customerMessage,
       shortReply: params.shortReply,
       dateHint: params.dateHint,
+      styleHint: params.styleHint,
+      referenceAlreadyOffered,
     });
 
   const filled = await fillReplySlots({

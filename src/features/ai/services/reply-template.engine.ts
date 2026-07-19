@@ -87,20 +87,19 @@ const TEMPLATES: Record<StrategyId, ReplyTemplate> = {
   TRUST_BUILD_v2: {
     strategyId: "TRUST_BUILD_v2",
     requireCta: false,
-    requireReference: true,
+    requireReference: false,
     requireQuestion: true,
     allowPrice: false,
-    maxWords: 80,
+    maxWords: 70,
     parts: [
       { type: "slot", slot: "hook" },
-      { type: "slot", slot: "proof" },
       { type: "slot", slot: "question" },
     ],
     defaults: {
       hook: "Anladım.",
       value: "",
-      proof: "İsterseniz benzer bir çekimden kısa örnek atayım.",
-      question: "Daha sinematik mi bakıyorsunuz, yoksa sade mi?",
+      proof: "",
+      question: "Sizin için en önemlisi ne — tarih mi, çekim tarzı mı?",
       cta: "",
     },
   },
@@ -290,7 +289,9 @@ export type TemplateContext = {
   customerMessage?: string;
   shortReply?: ShortReplyResolution | null;
   dateHint?: string | null;
+  styleHint?: string | null;
   lastAiReply?: string | null;
+  referenceAlreadyOffered?: boolean;
 };
 
 /**
@@ -316,10 +317,13 @@ export function getTemplateForDecision(
   const msg = ctx.customerMessage?.trim() ?? "";
   const short = ctx.shortReply;
   const dateHint = ctx.dateHint?.trim() || null;
+  const styleHint = ctx.styleHint?.trim() || null;
   const resolvedDate =
     short?.kind === "date_answer"
       ? short.resolvedValue
       : dateHint;
+  const outdoorKnown =
+    /dış\s*çekim|dis\s*cekim/i.test(msg) || styleHint === "dış çekim";
 
   if (
     pack.strategyId === "GREETING_ACK_v1" &&
@@ -334,39 +338,109 @@ export function getTemplateForDecision(
   }
 
   if (pack.strategyId === "DATE_CONFIRM_v1") {
-    const label = resolvedDate || msg || "o tarih";
+    const label = resolvedDate || "o tarih";
     template.defaults = {
       ...template.defaults,
-      hook: `${label} için önce müsaitliği kontrol edelim.`,
-      question: "Çekim dış çekim mi olacak?",
+      hook: outdoorKnown
+        ? `${label} dış çekim için önce müsaitliği kontrol edelim.`
+        : `${label} için önce müsaitliği kontrol edelim.`,
+      question: outdoorKnown
+        ? "Saat aralığı belli mi?"
+        : "Çekim dış çekim mi olacak?",
       cta: "",
     };
   }
 
   if (pack.strategyId === "SHOW_EXAMPLE_v1") {
-    template.defaults = {
-      ...template.defaults,
-      hook: "Tabii.",
-      proof: "Size uygun kısa bir örnek paylaşayım.",
-      question: "Daha doğal mı, sinematik mi bakıyorsunuz?",
-      cta: "",
-    };
+    if (ctx.referenceAlreadyOffered) {
+      // Tekrar pitch yok — INFO'ya benzer yumuşak devam
+      template.requireReference = false;
+      template.parts = [
+        { type: "slot", slot: "hook" },
+        { type: "slot", slot: "question" },
+      ];
+      template.defaults = {
+        ...template.defaults,
+        hook: "Tabii.",
+        proof: "",
+        question: styleHint
+          ? "Albüm sizin için önemli mi?"
+          : "Daha doğal mı, sinematik mi bakıyorsunuz?",
+        cta: "",
+      };
+    } else {
+      template.defaults = {
+        ...template.defaults,
+        hook: "Tabii.",
+        proof: "Size uygun kısa bir örnek paylaşayım.",
+        question: styleHint
+          ? "Albüm sizin için önemli mi?"
+          : "Daha doğal mı, sinematik mi bakıyorsunuz?",
+        cta: "",
+      };
+    }
+  }
+
+  if (pack.strategyId === "TRUST_BUILD_v2") {
+    if (!ctx.referenceAlreadyOffered && !styleHint) {
+      template.requireReference = true;
+      template.parts = [
+        { type: "slot", slot: "hook" },
+        { type: "slot", slot: "proof" },
+        { type: "slot", slot: "question" },
+      ];
+      template.defaults = {
+        ...template.defaults,
+        hook: "Anladım.",
+        proof: "İsterseniz benzer bir çekimden kısa örnek atayım.",
+        question: "Daha sinematik mi bakıyorsunuz, yoksa sade mi?",
+        cta: "",
+      };
+    } else {
+      template.defaults = {
+        ...template.defaults,
+        hook: styleHint ? `${styleHint} tarafını not ettim.` : "Anladım.",
+        proof: "",
+        question: dateHint
+          ? "Albüm sizin için önemli mi?"
+          : "Tarih tarafı net mi sizde?",
+        cta: "",
+      };
+    }
   }
 
   if (pack.strategyId === "INFO_ONE_QUESTION_v2") {
-    if (short?.kind === "agreement" || short?.kind === "unclear") {
-      if (dateHint) {
+    // "Nasıl yani" — aynı stil sorusunu tekrar etme
+    if (short?.resolvedValue === "needs_clarification") {
+      template.defaults = {
+        ...template.defaults,
+        hook: "Kısaca şöyle:",
+        question: styleHint
+          ? "Örnek video mu istersiniz, yoksa paket detayı mı?"
+          : "Çekim tarzınız sade mi olsun, daha sinematik mi?",
+        cta: "",
+      };
+      if (styleHint) {
+        // Stil zaten var — net alternatif sor
+        template.defaults.question =
+          "Örnek kısa video mu atayım, yoksa paketleri mi anlatayım?";
+      }
+    } else if (short?.answeredTopic === "style" || styleHint) {
+      const style = short?.resolvedValue || styleHint || "bu tarz";
+      template.defaults = {
+        ...template.defaults,
+        hook: `${style} tamam.`,
+        question: dateHint
+          ? "Albüm de ister misiniz, yoksa video ağırlıklı mı?"
+          : "Tarih tarafı net mi sizde?",
+        cta: "",
+      };
+    } else if (short?.kind === "agreement" || short?.kind === "unclear") {
+      if (dateHint && !styleHint) {
         template.defaults = {
           ...template.defaults,
           hook: "Tamamdır.",
           question: "Çekim tarzında doğal mı, daha sinematik mi istersiniz?",
-          cta: "",
-        };
-      } else if (short.answeredTopic === "style") {
-        template.defaults = {
-          ...template.defaults,
-          hook: "Anladım.",
-          question: "Tarih tarafı net mi sizde?",
           cta: "",
         };
       } else if (short.answeredTopic === "none" || !short.previousAiQuestion) {
@@ -386,6 +460,13 @@ export function getTemplateForDecision(
           cta: "",
         };
       }
+    } else if (dateHint && styleHint) {
+      template.defaults = {
+        ...template.defaults,
+        hook: "Anladım.",
+        question: "Albüm sizin için önemli mi?",
+        cta: "",
+      };
     } else if (dateHint) {
       template.defaults = {
         ...template.defaults,

@@ -11,7 +11,10 @@ import {
   type ConversationStrategy,
 } from "@/features/ai/services/conversation-strategist.service";
 import { hasExplicitPriceIntent } from "@/features/ai/services/message-intent";
-import type { ShortReplyResolution } from "@/features/ai/services/short-reply-context.service";
+import {
+  aiAlreadyOfferedReference,
+  type ShortReplyResolution,
+} from "@/features/ai/services/short-reply-context.service";
 
 /** Versioned strategy playbooks — GPT bunları icat etmez. */
 export const STRATEGY_IDS = [
@@ -416,7 +419,24 @@ export function enforceStrategyPreconditions(params: {
     if (!customerWantsRef && !refOfferPending) {
       strategyId = shortReply?.isShort ? "WAIT_SPACE_v1" : "INFO_ONE_QUESTION_v2";
       notes.push("SHOW_EXAMPLE önkoşul yok → güvenli devam");
+    } else if (
+      aiAlreadyOfferedReference(lastAi) &&
+      !refOfferPending &&
+      !customerWantsRef
+    ) {
+      strategyId = "INFO_ONE_QUESTION_v2";
+      notes.push("Referans zaten teklif edildi → tekrar SHOW_EXAMPLE yok");
     }
+  }
+
+  if (
+    strategyId === "TRUST_BUILD_v2" &&
+    (brain.memory.styleHint ||
+      shortReply?.answeredTopic === "style" ||
+      aiAlreadyOfferedReference(lastAi))
+  ) {
+    strategyId = "INFO_ONE_QUESTION_v2";
+    notes.push("TRUST_BUILD döngüsü kırıldı → INFO");
   }
 
   if (strategyId === "DATE_CONFIRM_v1") {

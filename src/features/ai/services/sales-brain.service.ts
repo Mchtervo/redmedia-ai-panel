@@ -115,6 +115,8 @@ export type SalesMemory = {
   dateHint: string | null;
   decisionMaker: string | null;
   venueHint: string | null;
+  /** sade | sinematik | doğal | dış çekim … */
+  styleHint: string | null;
   packageLean: "basic" | "premium_album" | "elite" | null;
   rejectedTopics: string[];
   usedClosings: string[];
@@ -166,6 +168,7 @@ const memorySchema = z.object({
   dateHint: z.string().nullable(),
   decisionMaker: z.string().nullable(),
   venueHint: z.string().nullable(),
+  styleHint: z.string().nullable().optional(),
   packageLean: z
     .enum(["basic", "premium_album", "elite"])
     .nullable(),
@@ -211,6 +214,7 @@ export function emptySalesMemory(): SalesMemory {
     dateHint: null,
     decisionMaker: null,
     venueHint: null,
+    styleHint: null,
     packageLean: null,
     rejectedTopics: [],
     usedClosings: [],
@@ -269,7 +273,13 @@ function normalizeSnapshot(
         : "ask_question",
     mainBlocker: partial.mainBlocker,
     singleGoal: partial.singleGoal,
-    memory: partial.memory,
+    memory: {
+      ...emptySalesMemory(),
+      ...(partial.memory ?? {}),
+      styleHint: partial.memory?.styleHint ?? null,
+      rejectedTopics: [...(partial.memory?.rejectedTopics ?? [])],
+      usedClosings: [...(partial.memory?.usedClosings ?? [])],
+    },
     style: partial.style,
     turn: partial.turn,
   };
@@ -379,14 +389,25 @@ function extractBudgetTry(text: string): number | null {
 
 function extractDateHint(text: string): string | null {
   const t = text.trim();
+  // "Yarın dış çekim" gibi bileşik cevaplar
   const relative = t.match(
-    /^(yarın|yarin|bugün|bugun|öbür\s*gün|obur\s*gun|haftaya|gelecek\s*hafta)([\s!.?,]*)?$/i
+    /^(yarın|yarin|bugün|bugun|öbür\s*gün|obur\s*gun|haftaya|gelecek\s*hafta)\b/i
   );
   if (relative?.[1]) return relative[1].trim();
   const m = t.match(
     /(\d{1,2}\s*(?:ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)(?:\s*\d{4})?|\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?)/i
   );
   return m?.[1]?.trim() ?? null;
+}
+
+export function extractStyleHint(text: string): string | null {
+  const t = text.toLocaleLowerCase("tr-TR");
+  if (/\bsade\b/.test(t)) return "sade";
+  if (/sinematik/.test(t)) return "sinematik";
+  if (/doğal|dogal/.test(t)) return "doğal";
+  if (/dış\s*çekim|dis\s*cekim|outdoor/.test(t)) return "dış çekim";
+  if (/\bsalon\b/.test(t)) return "salon";
+  return null;
 }
 
 /** Müşteri mesajından memory güncelle (deterministik). */
@@ -426,6 +447,9 @@ export function updateMemoryFromCustomerMessage(
 
   const dateHint = extractDateHint(customerMessage);
   if (dateHint) next.dateHint = dateHint;
+
+  const styleHint = extractStyleHint(customerMessage);
+  if (styleHint) next.styleHint = styleHint;
 
   if (/eşim|esim|nişanlım|nisanlim|ailem/.test(t)) {
     next.decisionMaker = /eşim|esim/.test(t) ? "eşi" : next.decisionMaker;
@@ -776,8 +800,16 @@ export function chooseNextBestAction(params: {
   if (objective === "give_price" || state === "price") {
     return "give_price";
   }
-  if (objective === "build_trust" || scores.trust < 45) {
+  // Referans bir kez yeter — her turda aynı pitch döngüsü yasak
+  if (
+    (objective === "build_trust" || scores.trust < 45) &&
+    !memory.rejectedTopics.includes("reference_offered") &&
+    !memory.styleHint
+  ) {
     return "show_reference";
+  }
+  if (objective === "build_trust" || scores.trust < 45) {
+    return "ask_question";
   }
   if (objective === "resolve_objection") {
     return scores.priceSensitivity >= 70 ? "ask_question" : "continue";

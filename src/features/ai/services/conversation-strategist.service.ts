@@ -9,7 +9,10 @@ import {
   isGreetingOnly,
   isInformalChitchat,
 } from "@/features/ai/services/message-intent";
-import type { ShortReplyResolution } from "@/features/ai/services/short-reply-context.service";
+import {
+  aiAlreadyOfferedReference,
+  type ShortReplyResolution,
+} from "@/features/ai/services/short-reply-context.service";
 
 export const CONVERSATION_MOVES = [
   "greeting_ack",
@@ -136,6 +139,7 @@ export function decideConversationStrategy(params: {
   brain: SalesBrainSnapshot;
   customerMessage: string;
   shortReply?: ShortReplyResolution | null;
+  lastAiReply?: string | null;
 }): ConversationStrategy {
   const { brain, customerMessage } = params;
   const msg = customerMessage.trim();
@@ -143,6 +147,10 @@ export function decideConversationStrategy(params: {
   const upset = looksUpset(msg);
   const exampleAsk = asksExample(msg);
   const short = params.shortReply;
+  const refAlready =
+    aiAlreadyOfferedReference(params.lastAiReply) ||
+    brain.memory.rejectedTopics.includes("reference_offered");
+  const styleKnown = Boolean(brain.memory.styleHint);
 
   let move: ConversationMove = "ask_one_question";
   let rationale = "Varsayılan: tek soru ile ilerleme.";
@@ -200,22 +208,33 @@ export function decideConversationStrategy(params: {
   } else if (priceAsk) {
     move = "give_price";
     rationale = "Doğrudan fiyat sorusu — katalog ile cevap.";
-  } else if (exampleAsk) {
+  } else if (exampleAsk && !refAlready) {
     move = "show_example";
     rationale = "Müşteri açıkça örnek/referans istedi.";
   } else if (
     brain.nextBestAction === "show_reference" &&
-    // Kısa belirsiz mesajda NBA referans zorlamasın
+    !refAlready &&
+    !styleKnown &&
     msg.length > 24
   ) {
     move = "show_example";
-    rationale = "NBA show_reference (mesaj yeterince açık).";
+    rationale = "NBA show_reference (ilk teklif).";
   } else if (brain.objective === "resolve_objection") {
     move = "resolve_objection";
     rationale = "İtiraz çözme hedefi.";
-  } else if (brain.objective === "build_trust" || brain.scores.trust < 40) {
+  } else if (
+    (brain.objective === "build_trust" || brain.scores.trust < 40) &&
+    !refAlready &&
+    !styleKnown
+  ) {
     move = "build_trust";
     rationale = "Güven düşük / build_trust objective.";
+  } else if (
+    (brain.objective === "build_trust" || brain.scores.trust < 40) &&
+    (refAlready || styleKnown)
+  ) {
+    move = "ask_one_question";
+    rationale = "Referans/stil zaten işlendi — döngüyü kır, tek soru.";
   } else if (
     brain.objective === "soft_close" ||
     (brain.scores.purchaseIntent >= 75 &&

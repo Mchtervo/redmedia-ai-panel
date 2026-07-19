@@ -81,8 +81,8 @@ function strategyDrift(
   }
 
   if (
-    (pack.strategyId === "SHOW_EXAMPLE_v1" ||
-      pack.strategyId === "TRUST_BUILD_v2") &&
+    pack.strategyId === "SHOW_EXAMPLE_v1" &&
+    template.requireReference &&
     !REFERENCE_RE.test(reply)
   ) {
     return "Referans stratejisinde örnek/referans yok.";
@@ -123,6 +123,8 @@ export function validateSemanticRelevance(params: {
   customerMessage: string;
   shortReply?: ShortReplyResolution | null;
   dateHint?: string | null;
+  styleHint?: string | null;
+  referenceAlreadyOffered?: boolean;
 }): ReplyValidationResult {
   const text = params.reply.trim();
   const msg = params.customerMessage.trim();
@@ -176,6 +178,36 @@ export function validateSemanticRelevance(params: {
     detail.push("Referans onayında tarih sorusu patladı.");
   }
 
+  const styleKnown =
+    params.styleHint ||
+    (short?.answeredTopic === "style" ? short.resolvedValue : null);
+  if (
+    styleKnown &&
+    /sinematik\s*mi|sade\s*mi|doğal\s*mı|dogal\s*mi/i.test(text)
+  ) {
+    violations.push("semantic_relevance");
+    detail.push("Stil zaten belli; sinematik/sade tekrar soruluyor.");
+  }
+
+  if (
+    params.referenceAlreadyOffered &&
+    /örnek\s*atayım|ornek\s*atayim|benzer\s*(bir\s*)?çekimden\s*kısa/i.test(
+      text
+    )
+  ) {
+    violations.push("semantic_relevance");
+    detail.push("Aynı referans teklifi tekrarlanıyor.");
+  }
+
+  if (
+    short?.resolvedValue === "needs_clarification" &&
+    styleKnown &&
+    /sinematik\s*mi|sade\s*mi/i.test(text)
+  ) {
+    violations.push("semantic_relevance");
+    detail.push("Nasıl yani cevabında stil sorusu tekrarlandı.");
+  }
+
   if (violations.length > 0) {
     return { ok: false, violations, detail };
   }
@@ -189,6 +221,8 @@ export function validateTemplatedReply(params: {
   customerMessage?: string;
   shortReply?: ShortReplyResolution | null;
   dateHint?: string | null;
+  styleHint?: string | null;
+  referenceAlreadyOffered?: boolean;
 }): ReplyValidationResult {
   const { reply, template, pack } = params;
   const text = reply.trim();
@@ -277,6 +311,8 @@ export function validateTemplatedReply(params: {
       customerMessage: params.customerMessage,
       shortReply: params.shortReply,
       dateHint: params.dateHint,
+      styleHint: params.styleHint,
+      referenceAlreadyOffered: params.referenceAlreadyOffered,
     });
     if (!semantic.ok) {
       violations.push(...semantic.violations);

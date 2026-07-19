@@ -468,8 +468,13 @@ export async function generateSimpleAssistantReply(
         replyAb = null;
       }
     }
-    const { resolveShortReplyContext, shortReplyToJson } = await import(
-      "@/features/ai/services/short-reply-context.service"
+    const {
+      resolveShortReplyContext,
+      shortReplyToJson,
+      aiAlreadyOfferedReference,
+    } = await import("@/features/ai/services/short-reply-context.service");
+    const { extractStyleHint } = await import(
+      "@/features/ai/services/sales-brain.service"
     );
     const shortReply = resolveShortReplyContext({
       customerMessage: userContent,
@@ -477,16 +482,36 @@ export async function generateSimpleAssistantReply(
       lastAiReply,
       dateHint: salesBrain.memory.dateHint,
     });
-    // Kısa tarih cevabını memory'ye yaz (Sales Brain extract ile birlikte)
+    // Kısa tarih / stil cevabını memory'ye yaz
     if (shortReply.kind === "date_answer" && shortReply.resolvedValue) {
       salesBrain.memory.dateHint = shortReply.resolvedValue;
     }
+    const styleFromMsg =
+      (shortReply.answeredTopic === "style"
+        ? shortReply.resolvedValue
+        : null) || extractStyleHint(userContent);
+    if (styleFromMsg) {
+      salesBrain.memory.styleHint = styleFromMsg;
+    }
+    if (
+      aiAlreadyOfferedReference(lastAiReply) &&
+      !salesBrain.memory.rejectedTopics.includes("reference_offered")
+    ) {
+      salesBrain.memory.rejectedTopics = [
+        ...salesBrain.memory.rejectedTopics,
+        "reference_offered",
+      ];
+    }
+    const referenceAlreadyOffered =
+      aiAlreadyOfferedReference(lastAiReply) ||
+      salesBrain.memory.rejectedTopics.includes("reference_offered");
 
     if (isConversationStrategistEnabled()) {
       conversationStrategy = decideConversationStrategy({
         brain: salesBrain,
         customerMessage: userContent,
         shortReply,
+        lastAiReply,
       });
       if (replyAb) {
         conversationStrategy = applyReplyAbToStrategy(
@@ -522,8 +547,10 @@ export async function generateSimpleAssistantReply(
         pack: decisionPack,
         customerMessage: userContent,
         dateHint: salesBrain.memory.dateHint,
+        styleHint: salesBrain.memory.styleHint,
         lastAiReply,
         shortReply,
+        referenceAlreadyOffered,
       });
 
       if (
@@ -587,6 +614,16 @@ export async function generateSimpleAssistantReply(
 
       replyText = templated.reply;
       modelUsed = templated.model ?? `template:${decisionPack.strategyId}`;
+      // Bu turda referans teklif edildiyse sonraki turda tekrarlama
+      if (
+        aiAlreadyOfferedReference(replyText) &&
+        !salesBrain.memory.rejectedTopics.includes("reference_offered")
+      ) {
+        salesBrain.memory.rejectedTopics = [
+          ...salesBrain.memory.rejectedTopics,
+          "reference_offered",
+        ];
+      }
       console.info(
         "[simple-assistant] template-reply",
         JSON.stringify({
@@ -595,6 +632,7 @@ export async function generateSimpleAssistantReply(
           slotModel: templated.model,
           strategyId: decisionPack.strategyId,
           shortReplyKind: shortReply.kind,
+          styleHint: salesBrain.memory.styleHint,
           usedFallback: templated.usedFallback,
         })
       );

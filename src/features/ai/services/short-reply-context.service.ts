@@ -50,8 +50,17 @@ const SHORT_NO_RE =
 const RELATIVE_DATE_RE =
   /^(yarın|yarin|bugün|bugun|öbür\s*gün|obur\s*gun|haftaya|gelecek\s*hafta|bu\s*hafta|pazartesi|salı|sali|çarşamba|carsamba|perşembe|persembe|cuma|cumartesi|pazar)([\s!.?,]*)?$/i;
 
+const DATE_PREFIX_RE =
+  /^(yarın|yarin|bugün|bugun|öbür\s*gün|obur\s*gun|haftaya|gelecek\s*hafta)\b/i;
+
 const ABSOLUTE_DATE_RE =
   /^(\d{1,2}\s*(?:ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)(?:\s*\d{4})?|\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?)([\s!.?,]*)?$/i;
+
+const STYLE_ANSWER_RE =
+  /^(sade|sinematik|doğal|dogal|dış\s*çekim|dis\s*cekim|salon)([\s!.?,]*)?$/i;
+
+const CLARIFY_RE =
+  /^(nasıl\s*yani|nasil\s*yani|ne\s*demek|ne\s*anlama|anlamadım|anlamadim)([\s!.?,]*)?$/i;
 
 const DATE_ASK_RE =
   /(tarih|ne\s*zaman|hangi\s*gün|hangi\s*gun|müsait|musait|düğün\s*tarih|dugun\s*tarih)/i;
@@ -66,15 +75,18 @@ const VENUE_ASK_RE = /(mekân|mekan|salon|nerede|şehir|sehir|ankara|istanbul)/i
 
 export function isShortCustomerReply(message: string): boolean {
   const t = message.trim();
-  if (!t || t.length > 40) return false;
+  if (!t || t.length > 48) return false;
   const words = t.split(/\s+/).filter(Boolean);
-  if (words.length > 4) return false;
+  if (words.length > 5) return false;
   return (
     SHORT_ACK_RE.test(t) ||
     SHORT_DEFER_RE.test(t) ||
     SHORT_NO_RE.test(t) ||
     RELATIVE_DATE_RE.test(t) ||
-    ABSOLUTE_DATE_RE.test(t)
+    DATE_PREFIX_RE.test(t) ||
+    ABSOLUTE_DATE_RE.test(t) ||
+    STYLE_ANSWER_RE.test(t) ||
+    CLARIFY_RE.test(t)
   );
 }
 
@@ -118,10 +130,14 @@ export function resolveShortReplyContext(params: {
     params.lastAiReply?.trim() || lastAiContent(history) || null;
   const topic = previousAi ? classifyAiTopic(previousAi) : "none";
 
-  const isDateToken = RELATIVE_DATE_RE.test(msg) || ABSOLUTE_DATE_RE.test(msg);
+  const datePrefix = msg.match(DATE_PREFIX_RE)?.[1] ?? null;
+  const isDateToken =
+    RELATIVE_DATE_RE.test(msg) ||
+    ABSOLUTE_DATE_RE.test(msg) ||
+    Boolean(datePrefix);
   const isShort = isShortCustomerReply(msg);
 
-  if (!isShort && !isDateToken) {
+  if (!isShort && !isDateToken && !STYLE_ANSWER_RE.test(msg) && !CLARIFY_RE.test(msg)) {
     return {
       isShort: false,
       kind: "not_short",
@@ -134,20 +150,57 @@ export function resolveShortReplyContext(params: {
     };
   }
 
-  // 1) Açık tarih token'ı
+  // 0) "Nasıl yani" — önceki soruyu tekrar etme, netleştir
+  if (CLARIFY_RE.test(msg)) {
+    return {
+      isShort: true,
+      kind: "unclear",
+      answeredTopic: topic,
+      previousAiQuestion: previousAi,
+      resolvedValue: "needs_clarification",
+      suggestedMove: "ask_one_question",
+      suggestedStrategyId: "INFO_ONE_QUESTION_v2",
+      rationale: "Müşteri anlamadı — kısa netleştir, aynı soruyu döndürme.",
+    };
+  }
+
+  // 1) Açık tarih token'ı / "Yarın dış çekim"
   if (isDateToken) {
     return {
       isShort: true,
       kind: "date_answer",
       answeredTopic: "date",
       previousAiQuestion: previousAi,
-      resolvedValue: stripTrail(msg),
+      resolvedValue: datePrefix
+        ? datePrefix
+        : stripTrail(msg),
       suggestedMove: "ask_one_question",
       suggestedStrategyId: "DATE_CONFIRM_v1",
       rationale:
         topic === "date"
           ? "Önceki tarih sorusuna tarih cevabı."
           : "Tarih ifadesi algılandı.",
+    };
+  }
+
+  // 1b) Stil cevabı: Sade / Sinematik (Tamam/olur ACK değil)
+  if (
+    STYLE_ANSWER_RE.test(msg) ||
+    (topic === "style" &&
+      msg.length <= 24 &&
+      !SHORT_ACK_RE.test(msg) &&
+      !SHORT_DEFER_RE.test(msg) &&
+      !SHORT_NO_RE.test(msg))
+  ) {
+    return {
+      isShort: true,
+      kind: "agreement",
+      answeredTopic: "style",
+      previousAiQuestion: previousAi,
+      resolvedValue: stripTrail(msg).toLocaleLowerCase("tr-TR"),
+      suggestedMove: "ask_one_question",
+      suggestedStrategyId: "INFO_ONE_QUESTION_v2",
+      rationale: "Stil cevabı alındı — tekrar sinematik/sade sorma.",
     };
   }
 
@@ -237,10 +290,19 @@ export function resolveShortReplyContext(params: {
 /** Memory'ye yazılacak tarih ipucu (relative dahil). */
 export function extractShortDateHint(message: string): string | null {
   const t = message.trim();
+  const prefix = t.match(DATE_PREFIX_RE)?.[1];
+  if (prefix) return prefix;
   if (RELATIVE_DATE_RE.test(t) || ABSOLUTE_DATE_RE.test(t)) {
     return stripTrail(t);
   }
   return null;
+}
+
+export function aiAlreadyOfferedReference(aiText: string | null | undefined): boolean {
+  if (!aiText) return false;
+  return /örnek\s*atayım|ornek\s*atayim|referans\s*kesit|benzer\s*(bir\s*)?(çekim|düğün)/i.test(
+    aiText
+  );
 }
 
 export function shortReplyToJson(

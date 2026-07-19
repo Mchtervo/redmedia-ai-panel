@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createInitialSalesBrain } from "@/features/ai/services/sales-brain.service";
+import {
+  createInitialSalesBrain,
+  extractStyleHint,
+} from "@/features/ai/services/sales-brain.service";
 import { decideConversationStrategy } from "@/features/ai/services/conversation-strategist.service";
 import { decideSalesDecision } from "@/features/ai/services/decision-engine.service";
 import {
@@ -26,10 +29,23 @@ function decideWithHistory(params: {
   if (shortReply.kind === "date_answer" && shortReply.resolvedValue) {
     brain.memory.dateHint = shortReply.resolvedValue;
   }
+  if (shortReply.answeredTopic === "style" && shortReply.resolvedValue) {
+    brain.memory.styleHint = shortReply.resolvedValue;
+  }
+  const styleFromMsg = extractStyleHint(params.customerMessage);
+  if (styleFromMsg) brain.memory.styleHint = styleFromMsg;
+  if (
+    params.lastAiReply &&
+    /örnek atayım|benzer bir çekimden/i.test(params.lastAiReply) &&
+    !brain.memory.rejectedTopics.includes("reference_offered")
+  ) {
+    brain.memory.rejectedTopics.push("reference_offered");
+  }
   const conversationStrategy = decideConversationStrategy({
     brain,
     customerMessage: params.customerMessage,
     shortReply,
+    lastAiReply: params.lastAiReply,
   });
   const pack = decideSalesDecision({
     brain,
@@ -38,11 +54,15 @@ function decideWithHistory(params: {
     shortReply,
     lastAiReply: params.lastAiReply,
   });
+  const referenceAlreadyOffered =
+    brain.memory.rejectedTopics.includes("reference_offered");
   const template = getTemplateForDecision(pack, {
     customerMessage: params.customerMessage,
     shortReply,
     dateHint: brain.memory.dateHint,
+    styleHint: brain.memory.styleHint,
     lastAiReply: params.lastAiReply,
+    referenceAlreadyOffered,
   });
   const reply = composeDeterministicFallback(template);
   const validation = validateTemplatedReply({
@@ -59,6 +79,8 @@ function decideWithHistory(params: {
     customerMessage: params.customerMessage,
     shortReply,
     dateHint: brain.memory.dateHint,
+    styleHint: brain.memory.styleHint,
+    referenceAlreadyOffered,
   });
   return { shortReply, pack, template, reply, validation, brain };
 }
@@ -144,5 +166,51 @@ describe("short-reply + strategy preconditions", () => {
       brain,
     });
     assert.notEqual(r.pack.strategyId, "SHOW_EXAMPLE_v1");
+  });
+
+  it("Lab döngüsü: Yarın dış çekim → DATE_CONFIRM, örnek pitch yok", () => {
+    const r = decideWithHistory({
+      customerMessage: "Yarın dış çekim",
+      lastAiReply: "Merhaba. Nasıl bir çekim bakıyorsunuz?",
+    });
+    assert.equal(r.pack.strategyId, "DATE_CONFIRM_v1");
+    assert.equal(r.brain.memory.dateHint, "Yarın");
+    assert.doesNotMatch(r.reply, /örnek atayım|sinematik mi/i);
+  });
+
+  it("Lab döngüsü: Sade → stil not, sinematik/sade tekrar yok", () => {
+    const brain = createInitialSalesBrain("t", 4);
+    brain.memory.dateHint = "Yarın";
+    brain.memory.styleHint = null;
+    brain.memory.rejectedTopics = ["reference_offered"];
+    brain.nextBestAction = "show_reference";
+    brain.objective = "build_trust";
+    const r = decideWithHistory({
+      customerMessage: "Sade",
+      lastAiReply:
+        "Anladım. İsterseniz benzer bir çekimden kısa örnek atayım. Daha sinematik mi bakıyorsunuz, yoksa sade mi?",
+      brain,
+    });
+    assert.equal(r.shortReply.answeredTopic, "style");
+    assert.notEqual(r.pack.strategyId, "TRUST_BUILD_v2");
+    assert.notEqual(r.pack.strategyId, "SHOW_EXAMPLE_v1");
+    assert.doesNotMatch(r.reply, /sinematik mi|örnek atayım/i);
+    assert.match(r.reply, /sade/i);
+  });
+
+  it("Lab döngüsü: Nasıl yani → stil sorusu tekrarlanmaz", () => {
+    const brain = createInitialSalesBrain("t", 5);
+    brain.memory.dateHint = "Yarın";
+    brain.memory.styleHint = "sade";
+    brain.memory.rejectedTopics = ["reference_offered"];
+    const r = decideWithHistory({
+      customerMessage: "Nasıl yani",
+      lastAiReply:
+        "Anladım. İsterseniz benzer bir çekimden kısa örnek atayım. Sade çekim için hangi unsurları ön planda tutmak istersiniz?",
+      brain,
+    });
+    assert.doesNotMatch(r.reply, /sinematik mi|sade mi bakıyorsunuz/i);
+    assert.doesNotMatch(r.reply, /örnek atayım/i);
+    assert.equal(r.validation.ok, true, r.validation.ok ? "" : r.validation.detail.join("; "));
   });
 });
