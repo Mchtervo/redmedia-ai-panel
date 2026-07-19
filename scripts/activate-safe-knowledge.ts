@@ -42,11 +42,11 @@ async function main(): Promise<void> {
     category: "hizmetler",
     content:
       "Redmedia Ankara'da düğün, nişan ve etkinlik için sinematik video ve fotoğraf çeker. Dış çekim, gelin alma, kına, nikah, salon, albüm ve drone paketleri isteğe göre kurulur. Erken rezervasyonda paket indirimi ve hediyeler katalog kampanyalarına göre sunulur. Satış tonu samimi ve nettir; fiyat uydurulmaz.",
-    review_status: "approved",
+    review_status: "approved" as const,
     is_active: true,
     is_pricing_sensitive: false,
     is_campaign_claim: false,
-    source_type: "manual",
+    source_type: "manual" as const,
   };
 
   const { data: existingCore } = await supabase
