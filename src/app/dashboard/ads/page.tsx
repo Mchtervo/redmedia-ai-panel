@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { PlaceholderPage } from "@/components/dashboard/placeholder-page";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Ads — Redmedia AI Panel" };
-
-export default function AdsPage() {
-  return <PlaceholderPage title="Ads" />;
+/** Eski Ads rotası → AI Marketing Director */
+export default function AdsRedirectPage() {
+  redirect("/dashboard/marketing");
 }

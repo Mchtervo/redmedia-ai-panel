@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { IngestInboundMessageRawInput } from "@/features/conversations/validators/ingest-inbound-message";
+import { isJunkInboundMessageContent } from "@/features/conversations/validators/inbound-message-content";
 
 /**
  * ChatPlace webhook payload şeması.
@@ -29,6 +30,9 @@ export const chatPlaceWebhookSchema = z.object({
       .default("text"),
     text: z.string().max(4000).optional(),
     timestamp: z.iso.datetime().optional(),
+    media_url: z.string().url().optional(),
+    url: z.string().url().optional(),
+    attachment_url: z.string().url().optional(),
   }),
 });
 
@@ -63,6 +67,17 @@ export function resolveExternalMessageId(
 }
 
 /**
+ * ChatPlace değişkeni çözülmeden gelen metin alanları (örn. "{{ fullName }}")
+ * isim olarak kaydedilmemeli; bu durumda alan yok sayılır.
+ */
+function sanitizeContactField(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.includes("{{")) return undefined;
+  return trimmed;
+}
+
+/**
  * Doğrulanmış ChatPlace payload'ını `ingestInboundMessage` girdisine çevirir.
  * Ham payload da `rawPayload` olarak taşınır (denetim/replay için,
  * bkz. docs/CHATPLACE.md).
@@ -71,18 +86,24 @@ export function toIngestInput(
   payload: ChatPlaceWebhookPayload,
   rawPayload: Record<string, unknown>
 ): IngestInboundMessageRawInput {
+  const rawText = payload.message.text;
+  const content = isJunkInboundMessageContent(rawText)
+    ? "[sistem: geçersiz mesaj içeriği filtrelendi]"
+    : rawText;
+
   return {
     channel: payload.conversation.channel,
     externalConversationId: payload.conversation.id,
     contact: {
       instagramUserId: payload.contact.id,
-      username: payload.contact.username,
-      fullName: payload.contact.full_name,
+      username: sanitizeContactField(payload.contact.username),
+      fullName: sanitizeContactField(payload.contact.full_name),
     },
     externalMessageId: resolveExternalMessageId(payload.message.id),
-    content: payload.message.text,
+    content,
     messageType: payload.message.type,
     occurredAt: payload.message.timestamp,
     rawPayload,
+    source: "chatplace_webhook",
   };
 }

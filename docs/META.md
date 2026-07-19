@@ -1,47 +1,52 @@
 # Meta (Instagram / Facebook) Entegrasyonu
 
-> **Durum:** Henüz bağlanmadı. Bu belge entegrasyon planını tanımlar; canlı
-> bağlantı, API anahtarı veya kod içermez.
+> **Durum:** Canlı Graph API entegrasyonu aktif (okuma + senkron).
 
 ## Amaç
 
-Panel, Redmedia'nın Meta (Instagram ve Facebook) hesaplarındaki reklamları,
-sayfa konuşmalarını ve performans verilerini görüntülemek ve analiz etmek
-için Meta Graph API ile entegre olacaktır.
+Meta reklamları, insights ve Instagram içeriklerini panelde görüntülemek;
+AI yalnızca analiz/öneri üretir.
 
-## v1 Kapsamı ve Sınırları
+## v1 Sınırları
 
-- **İlk sürümde reklamlar otomatik kapatılmaz/durdurulmaz.** Panel, kampanya
-  durumunu değiştiren otomatik bir işlem yapmaz.
-- AI, reklam verisi üzerinde **yalnızca analiz ve öneri** üretir (örn.
-  "bu kampanyanın dönüşüm oranı düşüyor, incelenmesi önerilir"); kararı
-  uygulamaz.
-- **Bütçe değişikliği her zaman insan onayı gerektirir.** AI veya panel,
-  bütçeyi kendi başına değiştiremez; yalnızca değişiklik önerisi sunar,
-  onay sonrası yetkili personel uygular.
+- Reklamlar otomatik kapatılmaz / bütçe değiştirilmez.
+- AI yalnızca öneri üretir.
 
-Bu sınırlar `.cursor/rules/04-ai-behavior.mdc` ile birlikte geçerlidir ve
-gevşetilmesi ayrı bir kararla, açıkça talep edilmeden yapılmaz.
+## OAuth
 
-## Planlanan Kullanım Alanları
+- UI: `/dashboard/marketing/connections` → **Meta'ya Bağlan** / **Tekrar Yetkilendir**
+- Başlat: `GET /api/meta/oauth/start` (oturum gerekli)
+- Callback: `GET /api/meta/oauth/callback`
+- Uzun ömürlü token `meta_oauth_tokens` tablosunda (service role).
+- Yeni token kaydı eski aktif satırları `is_active=false` yapar.
+- `META_ACCESS_TOKEN` env **kullanılmaz**; tüm Graph çağrıları DB OAuth tokenı ile.
+- Connection Health: 🟢 Bağlı · 🟡 Süresi Doluyor · 🔴 Yetkilendirme Gerekli
 
-- Reklam kampanyası ve performans verisinin okunması (insights).
-- Sayfa/Instagram hesabı konuşmalarının panelde görüntülenmesi.
-- Reklam performansına dair AI destekli özet/öneri raporları.
+## Sync
 
-## Güvenlik Notları
+| Tür | Servis |
+|-----|--------|
+| Campaigns / AdSets / Ads / Creatives | `meta-ads-sync.service` |
+| Insights | `meta-insights-sync.service` |
+| Instagram | `meta-instagram-sync.service` |
 
-- Meta App Secret ve erişim tokenleri yalnızca sunucu tarafında saklanır
-  (bkz. `.cursor/rules/02-security.mdc`).
-- Meta'dan gelen webhook istekleri (varsa) imza doğrulamasından geçer.
-- API çağrı hataları kullanıcıya sade bir mesajla iletilir; ham hata detayı
-  loglanmaz/sızdırılmaz.
+Manuel: `/dashboard/marketing/connections`  
+Otomatik: `GET /api/cron/meta-sync` + `Authorization: Bearer CRON_SECRET`
 
-## Kapsam Dışı (v1)
+## Conversions API (CAPI)
 
-- Otomatik bütçe/durum değişikliği.
-- Otomatik reklam oluşturma/yayınlama.
+- Token: Events Manager Pixel/Dataset CAPI token (`META_CAPI_ACCESS_TOKEN`).
+- `META_ACCESS_TOKEN` ile karıştırılmaz; `/debug_token` kullanılmaz.
+- Test: `POST /{META_PIXEL_ID}/events` + `Authorization: Bearer …`
+- `META_CAPI_TEST_EVENT_CODE` yoksa olay gönderilmez → durum
+  **Yapılandırıldı, henüz olayla doğrulanmadı**.
+- Test kodu varsa güvenli `PageView` (`test_event_code`) gönderilir → **Bağlı**.
 
-Gerçek entegrasyon başladığında bu belge; kullanılan Graph API
-endpoint'leri, izinler (permissions) ve veri senkronizasyon sıklığıyla
-güncellenecektir.
+## Env
+
+Bkz. `.env.example` Meta bölümü. Secret frontend'e gitmez.
+
+## Migration
+
+- `20260717000022_meta_oauth_tokens.sql`
+- `20260717000023_meta_connection_configured_status.sql`

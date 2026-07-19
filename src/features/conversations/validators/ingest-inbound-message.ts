@@ -1,13 +1,12 @@
 import { z } from "zod";
 import { CONVERSATION_STATUS_VALUES } from "@/features/conversations/types";
+import {
+  MESSAGE_SOURCES,
+  type MessageSource,
+} from "@/features/conversations/types/message-source";
 
 /**
- * `ingestInboundMessage` servis fonksiyonunun girdi şeması. Şu an bu
- * fonksiyon yalnızca `scripts/seed-conversations.ts` (development-only)
- * tarafından çağrılıyor; gerçek bir ChatPlace webhook'u henüz bağlı değil
- * (bkz. docs/CHATPLACE.md). Girdi, dış kaynaklı kabul edilip yine de Zod
- * ile doğrulanır — webhook Route Handler'ı eklendiğinde aynı şema
- * kullanılacaktır.
+ * `ingestInboundMessage` girdi şeması (seed + ChatPlace webhook).
  */
 export const ingestInboundMessageSchema = z.object({
   channel: z.enum(["instagram", "facebook"]),
@@ -26,7 +25,35 @@ export const ingestInboundMessageSchema = z.object({
   rawPayload: z.record(z.string(), z.unknown()).optional(),
   /** Konuşma yoksa hangi durumla oluşturulacağı; varsayılan `open`. */
   initialStatus: z.enum(CONVERSATION_STATUS_VALUES).optional().default("open"),
+  /** Verilmezse external id / payload'dan türetilir; null olmaz. */
+  source: z.enum(MESSAGE_SOURCES).optional(),
 });
+
+/** Inbound source türetme — boş bırakılmaz. */
+export function resolveInboundMessageSource(input: {
+  source?: MessageSource;
+  externalConversationId: string;
+  rawPayload?: Record<string, unknown>;
+}): MessageSource {
+  if (input.source) return input.source;
+
+  const ext = input.externalConversationId;
+  if (/^seed[-_]/i.test(ext)) return "seed";
+  if (
+    /^(ai-test|ai-dup|prod-token|c-c)/i.test(ext) ||
+    ext.includes("{{") ||
+    /test/i.test(ext)
+  ) {
+    return "manual_test";
+  }
+
+  const event = input.rawPayload?.event;
+  if (typeof event === "string" && event.startsWith("message.")) {
+    return "chatplace_webhook";
+  }
+
+  return "unknown";
+}
 
 /** Şema tarafından doğrulanıp varsayılanları uygulanmış (parse edilmiş) şekil. */
 export type IngestInboundMessageInput = z.infer<typeof ingestInboundMessageSchema>;

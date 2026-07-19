@@ -102,7 +102,7 @@ adları ekrandan ekrana değişebilir; değerleri birebir bu sözleşmeye göre 
 {
   "event": "message.received",
   "conversation": {
-    "id": "{{ clientId }}",
+    "id": "{{ chatId }}",
     "channel": "instagram"
   },
   "contact": {
@@ -114,6 +114,12 @@ adları ekrandan ekrana değişebilir; değerleri birebir bu sözleşmeye göre 
     "type": "text",
     "text": "{{ lastMessage }}"
   }
+
+> Önemli: `message.text` mutlaka müşteri metni değişkeni olmalı (`lastMessage`
+> vb.). `StoppedStatusLabel` gibi UI label değişkenleri göndermeyin — panelde
+> boş/bozuk mesaj görünür. `conversation.id` için mümkünse ChatPlace `chatId`
+> kullanın (`clientId` değil); panel yine de aynı müşteriyi tek thread'de
+> birleştirir.
 }
 ```
 

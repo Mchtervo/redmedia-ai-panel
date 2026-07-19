@@ -39,6 +39,14 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,73 +56,96 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Redmedia AI Panel tasarım sistemi.
+ * Koyu, hafif mavi-tonlu nötr zemin (Linear/Vercel dili) + markanın
+ * adından gelen kızıl (crimson) aksan. Anlamsal renkler (success/warning/
+ * info/destructive) marka kızılından ayrı tutulur ve daima ikon/metinle
+ * birlikte kullanılır.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.985 0.002 285);
+  --foreground: oklch(0.16 0.006 285);
+  --surface: oklch(1 0 0);
+  --surface-elevated: oklch(1 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.16 0.006 285);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --popover-foreground: oklch(0.16 0.006 285);
+  --primary: oklch(0.55 0.2 18);
+  --primary-foreground: oklch(0.985 0.002 285);
+  --secondary: oklch(0.955 0.004 285);
+  --secondary-foreground: oklch(0.22 0.006 285);
+  --muted: oklch(0.955 0.004 285);
+  --muted-foreground: oklch(0.5 0.008 285);
+  --accent: oklch(0.955 0.004 285);
+  --accent-foreground: oklch(0.22 0.006 285);
+  --destructive: oklch(0.55 0.21 29);
+  --success: oklch(0.55 0.14 160);
+  --success-foreground: oklch(0.985 0.002 285);
+  --warning: oklch(0.62 0.15 75);
+  --warning-foreground: oklch(0.16 0.006 285);
+  --info: oklch(0.55 0.14 245);
+  --info-foreground: oklch(0.985 0.002 285);
+  --border: oklch(0.915 0.005 285);
+  --input: oklch(0.915 0.005 285);
+  --ring: oklch(0.55 0.2 18 / 55%);
+  --chart-1: oklch(0.6 0.2 18);
+  --chart-2: oklch(0.62 0.13 245);
+  --chart-3: oklch(0.7 0.14 80);
+  --chart-4: oklch(0.62 0.13 160);
+  --chart-5: oklch(0.6 0.15 300);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.97 0.003 285);
+  --sidebar-foreground: oklch(0.28 0.006 285);
+  --sidebar-primary: oklch(0.55 0.2 18);
+  --sidebar-primary-foreground: oklch(0.985 0.002 285);
+  --sidebar-accent: oklch(0.93 0.005 285);
+  --sidebar-accent-foreground: oklch(0.16 0.006 285);
+  --sidebar-border: oklch(0.915 0.005 285);
+  --sidebar-ring: oklch(0.55 0.2 18 / 55%);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.155 0.008 275);
+  --foreground: oklch(0.93 0.004 285);
+  --surface: oklch(0.185 0.009 275);
+  --surface-elevated: oklch(0.215 0.01 275);
+  --card: oklch(0.185 0.009 275);
+  --card-foreground: oklch(0.93 0.004 285);
+  --popover: oklch(0.2 0.009 275);
+  --popover-foreground: oklch(0.93 0.004 285);
+  --primary: oklch(0.66 0.19 16);
+  --primary-foreground: oklch(0.985 0.002 285);
+  --secondary: oklch(0.24 0.01 275);
+  --secondary-foreground: oklch(0.93 0.004 285);
+  --muted: oklch(0.24 0.01 275);
+  --muted-foreground: oklch(0.68 0.008 285);
+  --accent: oklch(0.245 0.012 275);
+  --accent-foreground: oklch(0.93 0.004 285);
+  --destructive: oklch(0.68 0.19 29);
+  --success: oklch(0.74 0.15 160);
+  --success-foreground: oklch(0.16 0.006 285);
+  --warning: oklch(0.8 0.15 80);
+  --warning-foreground: oklch(0.16 0.006 285);
+  --info: oklch(0.72 0.12 240);
+  --info-foreground: oklch(0.16 0.006 285);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.66 0.19 16 / 55%);
+  --chart-1: oklch(0.68 0.19 16);
+  --chart-2: oklch(0.7 0.12 240);
+  --chart-3: oklch(0.8 0.14 80);
+  --chart-4: oklch(0.74 0.14 160);
+  --chart-5: oklch(0.68 0.14 300);
+  --sidebar: oklch(0.14 0.008 275);
+  --sidebar-foreground: oklch(0.78 0.006 285);
+  --sidebar-primary: oklch(0.66 0.19 16);
+  --sidebar-primary-foreground: oklch(0.985 0.002 285);
+  --sidebar-accent: oklch(0.225 0.01 275);
+  --sidebar-accent-foreground: oklch(0.95 0.003 285);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.66 0.19 16 / 55%);
 }
 
 @layer base {
@@ -126,5 +157,61 @@
   }
   html {
     @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 30%, transparent);
+  }
+}
+
+@layer utilities {
+  /* Sayısal veri hizası: fiyat, oran, tarih kolonları kaymasın. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Kart giriş animasyonu — yalnızca opacity/transform, reduced-motion'a saygılı. */
+  .animate-rise {
+    animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-rise-late {
+    animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+  }
+
+  /* İnce, tema uyumlu scrollbar. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent)
+      transparent;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-rise-late {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

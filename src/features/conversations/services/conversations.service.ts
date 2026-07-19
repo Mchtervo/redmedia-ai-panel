@@ -16,6 +16,7 @@ import {
   insertOutboundAiMessage,
   insertOutboundStaffMessage,
   listMessagesByConversation,
+  listRecentMessagesByConversation,
 } from "@/features/conversations/repositories/messages.repository";
 import type {
   ConversationDetail,
@@ -25,8 +26,10 @@ import type {
 } from "@/features/conversations/types";
 import {
   ingestInboundMessageSchema,
+  resolveInboundMessageSource,
   type IngestInboundMessageRawInput,
 } from "@/features/conversations/validators/ingest-inbound-message";
+import type { MessageSource } from "@/features/conversations/types/message-source";
 
 type TypedSupabaseClient = SupabaseClient<Database>;
 
@@ -131,6 +134,12 @@ export async function ingestInboundMessage(
     }
   }
 
+  const source = resolveInboundMessageSource({
+    source: input.source,
+    externalConversationId: input.externalConversationId,
+    rawPayload: input.rawPayload,
+  });
+
   const message = await insertInboundMessage(supabase, {
     conversationId: conversation.id,
     externalMessageId: input.externalMessageId,
@@ -141,6 +150,7 @@ export async function ingestInboundMessage(
     // tipi TypeScript'in `unknown` değerleri kabul etmemesi nedeniyle
     // burada açıkça belirtilir.
     rawPayload: input.rawPayload as Message["raw_payload"],
+    source,
   });
 
   await touchLastMessageAt(supabase, conversation.id, message.created_at);
@@ -156,24 +166,113 @@ export async function ingestInboundMessage(
 export type SendStaffMessageParams = {
   conversationId: string;
   content: string;
+  /** Verilmezse Meta başarılıysa meta_delivery, aksi halde unknown. */
+  source?: MessageSource;
 };
 
 /**
- * Personelin panelden yazdığı cevabı kaydeder. ChatPlace'e gerçek bir
- * gönderim YAPMAZ (bkz. docs/CHATPLACE.md, v1 kasıtlı sınırlaması) —
- * yalnızca `messages` tablosuna `direction=outbound, sender_type=staff`
- * olarak yazar.
+ * Personelin panelden yazdığı cevabı kaydeder.
+ * Contact'ta meta_igsid varsa Meta Messaging API ile Instagram DM dener;
+ * yoksa / başarısızsa yalnızca DB kaydı (eski personel köprüsü).
  */
 export async function sendStaffMessage(
   supabase: TypedSupabaseClient,
-  { conversationId, content }: SendStaffMessageParams
+  { conversationId, content, source: sourceOverride }: SendStaffMessageParams,
+  options?: { actorId?: string | null }
 ): Promise<Message> {
+  const conv = await getConversationById(supabase, conversationId);
+  let metaDelivery: {
+    ok: boolean;
+    metaMessageId?: string;
+    error?: string;
+  } | null = null;
+
+  if (conv?.contact_id) {
+    try {
+      const { sendMetaDmForContact } = await import(
+        "@/features/marketing/services/meta/meta-messaging.service"
+      );
+      const sent = await sendMetaDmForContact(supabase, {
+        contactId: conv.contact_id,
+        conversationId: null,
+        text: content,
+      });
+      if (sent.ok) {
+        metaDelivery = { ok: true, metaMessageId: sent.metaMessageId };
+      } else if (sent.code !== "missing_igsid") {
+        metaDelivery = { ok: false, error: sent.message };
+      }
+    } catch {
+      metaDelivery = { ok: false, error: "Meta gönderim denemesi başarısız." };
+    }
+  }
+
+  const staffSource =
+    sourceOverride ??
+    (metaDelivery?.ok === true
+      ? ("meta_delivery" as const)
+      : ("unknown" as const));
+
   const message = await insertOutboundStaffMessage(supabase, {
     conversationId,
     content,
+    externalMessageId: metaDelivery?.metaMessageId ?? null,
+    source: staffSource,
+    rawPayload: metaDelivery
+      ? {
+          delivery: metaDelivery.ok ? "meta_messaging" : "db_only",
+          meta_error: metaDelivery.error ?? null,
+        }
+      : { delivery: "db_only" },
   });
 
   await touchLastMessageAt(supabase, conversationId, message.created_at);
+
+  // Admin AI düzeltmesi: son AI mesajından sonra personel yazdıysa kaydet
+  try {
+    const recent = await listRecentMessagesByConversation(
+      supabase,
+      conversationId,
+      8
+    );
+    const lastAi = [...recent]
+      .reverse()
+      .find((m) => m.sender_type === "ai" && m.content);
+    if (lastAi?.content && lastAi.content.trim() !== content.trim()) {
+      const { insertAdminAiCorrection, recordConversationOutcome } =
+        await import("@/features/ai-brain/services/ai-brain.service");
+      await insertAdminAiCorrection(supabase, {
+        conversationId,
+        contactId: conv?.contact_id ?? null,
+        aiMessageId: lastAi.id,
+        staffMessageId: message.id,
+        aiText: lastAi.content,
+        staffText: content,
+        actorId: options?.actorId ?? null,
+      });
+      await recordConversationOutcome(supabase, {
+        conversationId,
+        contactId: conv?.contact_id ?? null,
+        outcome: "admin_corrected_ai",
+      });
+
+      // Human Feedback Learning — fark → kalıp
+      try {
+        const { learnFromHumanCorrection } = await import(
+          "@/features/ai/services/human-feedback-learning.service"
+        );
+        await learnFromHumanCorrection(supabase, {
+          conversationId,
+          aiText: lastAi.content,
+          staffText: content,
+        });
+      } catch {
+        /* pattern çıkarma opsiyonel */
+      }
+    }
+  } catch {
+    // düzeltme kaydı opsiyonel
+  }
 
   return message;
 }
@@ -182,6 +281,8 @@ export type SendAiMessageParams = {
   conversationId: string;
   content: string;
   aiRunId?: string;
+  /** Varsayılan: chatplace_webhook (canlı AI reply yolu). */
+  source?: "chatplace_webhook" | "meta_delivery" | "lab" | "unknown";
 };
 
 /**
@@ -190,11 +291,12 @@ export type SendAiMessageParams = {
  */
 export async function sendAiMessage(
   supabase: TypedSupabaseClient,
-  { conversationId, content, aiRunId }: SendAiMessageParams
+  { conversationId, content, aiRunId, source }: SendAiMessageParams
 ): Promise<Message> {
   const message = await insertOutboundAiMessage(supabase, {
     conversationId,
     content,
+    source: source ?? "chatplace_webhook",
     rawPayload: aiRunId ? { ai_run_id: aiRunId } : null,
   });
 
@@ -208,7 +310,29 @@ export async function updateConversationStatus(
   conversationId: string,
   status: ConversationStatus
 ) {
-  return updateConversationStatusRepo(supabase, conversationId, status);
+  const updated = await updateConversationStatusRepo(
+    supabase,
+    conversationId,
+    status
+  );
+
+  if (status === "closed") {
+    try {
+      const { learnOnConversationClosed } = await import(
+        "@/features/learning/services/learning-automation.service"
+      );
+      await learnOnConversationClosed(supabase, conversationId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown";
+      console.error(
+        "[conversations] kapanış öğrenmesi başarısız:",
+        conversationId,
+        message
+      );
+    }
+  }
+
+  return updated;
 }
 
 /** `userId` null verilirse atama kaldırılır (bkz. Inbox "Atamayı kaldır"). */

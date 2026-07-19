@@ -1,7 +1,7 @@
-# features/settings
+# Settings
 
-**Menü:** Settings (`/dashboard/settings`)
+İşletme ayarları ve AI evren anahtarları (`business_settings`).
 
-**Sahip olduğu tablo(lar):** `business_settings`
-
-Henüz kod eklenmedi. Standart iç yapı için `src/features/README.md`'ye bakın.
+- `services/ai-feature-flags.service.ts` — kill switch okuma/yazma
+- `components/ai-controls-form.tsx` — panel UI
+- Sayfa: `/dashboard/settings`

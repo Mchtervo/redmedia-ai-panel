@@ -61,8 +61,9 @@ export function ReplyBox({ conversationId }: { conversationId: string }) {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Not: Bu mesaj yalnızca panelde kaydedilir; ChatPlace entegrasyonu
-        henüz bağlanmadığı için gerçek müşteriye iletilmez.
+        Not: Müşteride Meta IGSID varsa Instagram DM ile gönderilir; yoksa
+        yalnızca panele kaydedilir. Gelen mesajlar ChatPlace webhook/MCP ile
+        gelir — görünmüyorsa üstteki «Mesajları Yenile»yi kullanın.
       </p>
     </div>
   );

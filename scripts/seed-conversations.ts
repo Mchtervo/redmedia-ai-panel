@@ -65,10 +65,12 @@ async function main() {
     externalMessageId: "seed-msg-1a",
     content: "Merhaba, düğün paketleriniz hakkında bilgi alabilir miyim?",
     occurredAt: hoursAgo(3),
+    source: "seed",
   });
   await sendStaffMessage(supabase, {
     conversationId: ingest1a.message.conversation_id,
     content: "Merhaba! Elbette, size hemen paket detaylarımızı paylaşayım.",
+    source: "seed",
   });
   await ingestInboundMessage(supabase, {
     channel: "instagram",
@@ -77,6 +79,7 @@ async function main() {
     externalMessageId: "seed-msg-1b",
     content: "Teşekkürler, bekliyorum.",
     occurredAt: hoursAgo(1),
+    source: "seed",
   });
 
   // --- Demo Müşteri 2: bekleyen konuşma, sadece müşteri mesajları ---
@@ -92,6 +95,7 @@ async function main() {
     externalMessageId: "seed-msg-2a",
     content: "İndirim yapabilir misiniz?",
     occurredAt: hoursAgo(5),
+    source: "seed",
   });
   const ingest2b = await ingestInboundMessage(supabase, {
     channel: "instagram",
@@ -101,6 +105,7 @@ async function main() {
     content: "Cevap bekliyorum, ilginizi rica ederim.",
     occurredAt: hoursAgo(4),
     initialStatus: "pending",
+    source: "seed",
   });
   await supabase
     .from("conversations")
@@ -120,6 +125,7 @@ async function main() {
     externalMessageId: "seed-msg-3a",
     content: "Rezervasyonum onaylandı mı?",
     occurredAt: hoursAgo(30),
+    source: "seed",
   });
   const conversationId3 = ingest3a.message.conversation_id;
 
@@ -132,7 +138,9 @@ async function main() {
       direction: "outbound",
       sender_type: "ai",
       message_type: "text",
+      source: "seed",
       content: "Merhaba! Rezervasyon durumunuzu hemen kontrol ediyorum.",
+      raw_payload: { source: "seed" },
       created_at: hoursAgo(29),
     },
     {
@@ -140,7 +148,9 @@ async function main() {
       direction: "outbound",
       sender_type: "system",
       message_type: "text",
+      source: "seed",
       content: "Konuşma personel tarafından kapatıldı.",
+      raw_payload: { source: "seed" },
       created_at: hoursAgo(28),
     },
   ]);
@@ -148,6 +158,7 @@ async function main() {
   await sendStaffMessage(supabase, {
     conversationId: conversationId3,
     content: "Evet, rezervasyonunuz onaylandı. İyi günler dileriz!",
+    source: "seed",
   });
 
   await supabase

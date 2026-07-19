@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/types/database";
 import type { AiRun } from "@/features/conversations/types";
+import { estimateCostUsd } from "@/lib/ai/model-router";
 
 type TypedSupabaseClient = SupabaseClient<Database>;
 
@@ -29,6 +30,12 @@ export async function insertAiRun(
       model: params.model,
       input_tokens: params.inputTokens ?? null,
       output_tokens: params.outputTokens ?? null,
+      // Maliyet tek noktada hesaplanır (docs/41 Cost Estimation).
+      estimated_cost: estimateCostUsd(
+        params.model,
+        params.inputTokens,
+        params.outputTokens
+      ),
       result: params.result ?? null,
       status: params.status,
       requires_human_approval: params.requiresHumanApproval ?? false,

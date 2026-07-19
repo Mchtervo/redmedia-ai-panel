@@ -1,0 +1,36 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/conversation-learning",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/follow-ups",
+      "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/ai-weekly-report",
+      "schedule": "0 3 * * 1"
+    },
+    {
+      "path": "/api/cron/chatplace-sync",
+      "schedule": "45 * * * *"
+    },
+    {
+      "path": "/api/cron/meta-sync",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/ceo-daily-report",
+      "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/marketing-daily-report",
+      "schedule": "45 4 * * *"
+    }
+  ]
+}

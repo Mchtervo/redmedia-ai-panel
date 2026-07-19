@@ -1,9 +1,9 @@
 # features/reservations
 
-**Menü:** Reservations (`/dashboard/reservations`)
+**Menü:** Rezervasyonlar (`/dashboard/reservations`)
 
-**Sahip olduğu tablo(lar):** `reservations`
+**Tablolar:** `reservations`, `reservation_items`, `reservation_changes`
 
-**Bağımlılık:** `features/contacts` (contact_id), `features/leads` (lead_profile_id)
+**Bağımlılık:** catalog, pricing, scheduling, payments, plateaus, CRM
 
-Henüz kod eklenmedi. Standart iç yapı için `src/features/README.md`'ye bakın.
+Detay: `docs/RESERVATIONS.md`

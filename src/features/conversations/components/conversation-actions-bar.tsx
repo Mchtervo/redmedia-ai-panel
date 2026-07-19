@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   assignToMeAction,
+  syncChatPlaceMessagesAction,
   unassignConversationAction,
   updateConversationStatusAction,
 } from "@/features/conversations/actions/conversation-actions";
@@ -30,7 +31,9 @@ export function ConversationActionsBar({
   currentUserId,
 }: ConversationActionsBarProps) {
   const [isPending, setIsPending] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncInfo, setSyncInfo] = useState<string | null>(null);
 
   const isAssignedToMe = assigneeId === currentUserId;
 
@@ -60,6 +63,25 @@ export function ConversationActionsBar({
       setError(result.error);
     }
     setIsPending(false);
+  }
+
+  async function handleSyncMessages() {
+    if (isSyncing || isPending) return;
+    setIsSyncing(true);
+    setError(null);
+    setSyncInfo(null);
+    const result = await syncChatPlaceMessagesAction(conversationId);
+    if (!result.success) {
+      setError(result.error);
+    } else {
+      const n = result.imported ?? 0;
+      setSyncInfo(
+        n > 0
+          ? `${n} mesaj ChatPlace'ten çekildi.`
+          : "Yeni mesaj yok; kayıtlar güncel görünüyor."
+      );
+    }
+    setIsSyncing(false);
   }
 
   return (
@@ -93,8 +115,21 @@ export function ConversationActionsBar({
         >
           {isAssignedToMe ? "Atamayı Kaldır" : "Bana Ata"}
         </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isPending || isSyncing}
+          onClick={() => void handleSyncMessages()}
+        >
+          {isSyncing ? "Çekiliyor…" : "Mesajları Yenile"}
+        </Button>
       </div>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {syncInfo ? (
+        <p className="text-xs text-muted-foreground">{syncInfo}</p>
+      ) : null}
     </div>
   );
 }

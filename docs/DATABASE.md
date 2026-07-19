@@ -5,6 +5,10 @@
 > `src/types/database.ts` içinde tanımlıdır ve Supabase istemcilerine
 > (`src/lib/supabase/client.ts`, `src/server/supabase/server.ts`,
 > `src/server/supabase/admin.ts`) bağlanmıştır.
+>
+> **Conversation Learning** migration'ı (`20260717000011`) canlıya
+> `supabase/migrations/` + `full_database_setup.sql` üzerinden ayrıca
+> uygulanmalıdır (2 yeni tablo + mevcut tablo kolonları).
 
 ## Teknoloji
 
@@ -46,6 +50,30 @@ policy'ler ayrı bir migration ile eklenecektir.
 | `20260717000008_integrations.sql` | `integrations`, `webhook_events` | v1 taslağı, sır/token içermez |
 | `20260717000009_sales_and_attribution.sql` | `attribution_events`, `sales`, `reservations` | v1 taslağı |
 | `20260717000010_recommendations_and_automation.sql` | `recommendations`, `automation_logs` | v1 taslağı |
+| `20260717000011_conversation_learning.sql` | `conversation_analyses`, `conversation_learning_runs` + `knowledge_documents` / `conversation_summaries` / `conversations` genişletmesi | Conversation Learning |
+| `20260717000012_customer_profiles.sql` | `customer_profiles` | Customer Intelligence (CRM Memory) |
+| `20260717000013_reservation_os_core.sql` | catalog, plateaus, teams, expand `reservations`, items, changes | Reservation OS |
+| `20260717000014_reservation_os_payments.sql` | `payment_accounts`, `payment_receipts` | Kapora/dekont |
+| `20260717000015_reservation_os_followups_reminders.sql` | `follow_up_tasks`, `reminder_jobs` | Follow-up + hatırlatma |
+| `20260717000016_reservation_os_seed.sql` | seed | Hizmet/kampanya seed |
+| `20260717000017_staff_management.sql` | staff tabloları | Personel yönetimi |
+| `20260717000018_customer_memory_ai_brain.sql` | AI Brain / müşteri hafızası | Customer memory |
+| `20260717000019_smart_sales_crm.sql` | smart sales tabloları | Smart Sales CRM |
+| `20260717000020_ceo_intelligence.sql` | CEO intelligence tabloları | CEO raporları |
+| `20260717000021_marketing_director.sql` | marketing tabloları | Marketing Director |
+| `20260717000022_meta_oauth_tokens.sql` | `meta_oauth_tokens` | Meta OAuth token yönetimi |
+| `20260717000023_meta_connection_configured_status.sql` | — | Bağlantı durumu genişletmesi |
+| `20260717000024_ai_attribution_engine.sql` | attribution tabloları | AI Attribution Engine |
+| `20260718000025_conversations_whatsapp_channel.sql` | — | WhatsApp kanal desteği |
+| `20260718000026_conversation_sales_scores.sql` | `conversation_sales_scores` | Konuşma puanlama (Sales Learning) |
+| `20260718000027_sales_patterns.sql` | `sales_patterns` | Öğrenilen satış kalıpları |
+| `20260718000028_company_personality.sql` | `company_personality_traits` | Şirket kişiliği hafızası |
+| `20260718000029_ai_mistakes.sql` | `ai_mistakes` | AI hata hafızası (self-improvement) |
+| `20260718000030_ai_weekly_reports.sql` | `ai_weekly_reports` | Haftalık AI öz değerlendirme |
+| `20260718000031_ai_playbooks.sql` | `ai_playbooks` | Playbook Engine (docs/27) |
+| `20260718000032_ai_approvals.sql` | `ai_approvals` | Approval Engine onay kuyruğu (docs/43) |
+| `20260718000033_automation_rules.sql` | `automation_rules`, `automation_runs` | Automation Engine (docs/14, 32) |
+| `20260718000034_knowledge_rag.sql` | — | RAG: `knowledge_chunks` ivfflat index + `match_knowledge_chunks()` (docs/29, 30) |
 
 "Kullanıcı tanımıyla birebir" olmayan tablolarda kolonlar, projenin amacına ve
 `docs/META.md`, `docs/CHATPLACE.md`, `docs/AI.md` içindeki akışlara göre

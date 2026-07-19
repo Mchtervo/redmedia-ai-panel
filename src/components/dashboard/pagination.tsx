@@ -40,15 +40,27 @@ export function Pagination({
         Sayfa {currentPage} / {Math.max(totalPages, 1)}
       </p>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" disabled={!hasPrevious} render={
-          hasPrevious ? <Link href={hrefForPage(currentPage - 1)} /> : undefined
-        }>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!hasPrevious}
+          render={
+            hasPrevious ? (
+              <Link href={hrefForPage(currentPage - 1)} />
+            ) : undefined
+          }
+        >
           <ChevronLeft />
           Önceki
         </Button>
-        <Button variant="outline" size="sm" disabled={!hasNext} render={
-          hasNext ? <Link href={hrefForPage(currentPage + 1)} /> : undefined
-        }>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!hasNext}
+          render={
+            hasNext ? <Link href={hrefForPage(currentPage + 1)} /> : undefined
+          }
+        >
           Sonraki
           <ChevronRight />
         </Button>

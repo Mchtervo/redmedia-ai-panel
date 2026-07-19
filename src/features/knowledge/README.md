@@ -1,10 +1,13 @@
 # features/knowledge
 
-**Menü:** Knowledge (`/dashboard/knowledge`)
+**Menü:** Knowledge (`/dashboard/knowledge`) — genel bilgi bankası (placeholder)
 
 **Sahip olduğu tablo(lar):** `knowledge_documents`, `knowledge_chunks`
 
-**Not:** `knowledge_chunks.embedding` alanı AI grounding (RAG) için kullanılır;
-OpenAI entegrasyonu (`docs/AI.md`) ile birlikte doldurulacaktır.
+**Not:** Conversation Learning onay akışı `knowledge_documents` üzerinde
+çalışır; repository:
+`repositories/knowledge-documents.repository.ts`.
+Panel inceleme UI'sı `/dashboard/ai` (AI Öğrenme) altındadır.
 
-Henüz kod eklenmedi. Standart iç yapı için `src/features/README.md`'ye bakın.
+`knowledge_chunks.embedding` vektör RAG sonraki fazdır; v1'de onaylı
+dokümanlar güncellik sırasıyla satış asistanına bound edilir.

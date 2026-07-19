@@ -1,5 +1,6 @@
 import { cn, formatDateTime } from "@/lib/utils";
 import type { Message } from "@/features/conversations/types";
+import { isJunkInboundMessageContent } from "@/features/conversations/validators/inbound-message-content";
 
 const SENDER_LABELS: Record<Message["sender_type"], string> = {
   customer: "Müşteri",
@@ -8,15 +9,29 @@ const SENDER_LABELS: Record<Message["sender_type"], string> = {
   system: "Sistem",
 };
 
+function displayContent(message: Message): string {
+  const raw = message.content?.trim() ?? "";
+  if (!raw) {
+    return `[${message.message_type || "boş mesaj"}]`;
+  }
+  if (isJunkInboundMessageContent(raw)) {
+    return "[ChatPlace değişken hatası — gerçek metin gelmedi. «Mesajları Yenile» deneyin]";
+  }
+  return raw;
+}
+
 export function MessageBubble({ message }: { message: Message }) {
   const isOutbound = message.direction === "outbound";
   const isSystem = message.sender_type === "system";
+  const text = displayContent(message);
+  const isPlaceholder =
+    !message.content?.trim() || isJunkInboundMessageContent(message.content);
 
   if (isSystem) {
     return (
       <div className="flex justify-center py-1">
         <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-          {message.content}
+          {text}
         </span>
       </div>
     );
@@ -29,12 +44,11 @@ export function MessageBubble({ message }: { message: Message }) {
           "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap",
           isOutbound
             ? "bg-primary text-primary-foreground"
-            : "bg-muted text-foreground"
+            : "bg-muted text-foreground",
+          isPlaceholder && "italic opacity-80"
         )}
       >
-        {message.content ?? (
-          <span className="italic opacity-70">[{message.message_type}]</span>
-        )}
+        {text}
       </div>
       <span className="px-1 text-xs text-muted-foreground">
         {SENDER_LABELS[message.sender_type]} · {formatDateTime(message.created_at)}

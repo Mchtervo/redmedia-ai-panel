@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
+import type { Database, Json } from "@/types/database";
 import { buildOrIlikeFilter, escapeIlikePattern } from "@/lib/supabase/query-helpers";
 import type {
   AiRun,
@@ -134,6 +134,26 @@ export async function getConversationById(
   return data as unknown as ConversationWithRelations | null;
 }
 
+/** Kanal + dış id ile mevcut konuşmayı arar (senkronizasyon ön kontrolü). */
+export async function findConversationByExternalId(
+  supabase: TypedSupabaseClient,
+  channel: Conversation["channel"],
+  externalConversationId: string
+): Promise<Conversation | null> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("channel", channel)
+    .eq("external_conversation_id", externalConversationId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export type FindOrCreateConversationParams = {
   contactId: string;
   channel: Conversation["channel"];
@@ -143,7 +163,10 @@ export type FindOrCreateConversationParams = {
 
 /**
  * `conversations`'ı `channel` + `external_conversation_id` ile bul; yoksa
- * oluştur (bkz. docs/CHATPLACE.md — bul-veya-oluştur deseni, tekrar önleme).
+ * aynı contact+channel konuşmasını yeniden kullan; yoksa oluştur.
+ *
+ * ChatPlace webhook sıkça `clientId`, MCP ise `chat.id` gönderir — ikisi
+ * farklı external id üretip mesajları ikiye bölerdi.
  */
 export async function findOrCreateConversation(
   supabase: TypedSupabaseClient,
@@ -162,6 +185,23 @@ export async function findOrCreateConversation(
 
   if (existing) {
     return existing;
+  }
+
+  const { data: byContact, error: byContactError } = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("contact_id", contactId)
+    .eq("channel", channel)
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (byContactError) {
+    throw byContactError;
+  }
+
+  if (byContact) {
+    return byContact;
   }
 
   const { data: created, error: createError } = await supabase
@@ -254,6 +294,39 @@ export async function touchLastMessageAt(
 
   if (updateError) {
     throw updateError;
+  }
+}
+
+/** Satış Beyni snapshot — konuşma bazlı kalıcı state. */
+export async function getConversationSalesBrainState(
+  supabase: TypedSupabaseClient,
+  conversationId: string
+): Promise<Json | null> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("sales_brain_state")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.sales_brain_state ?? null;
+}
+
+export async function saveConversationSalesBrainState(
+  supabase: TypedSupabaseClient,
+  conversationId: string,
+  state: Json
+): Promise<void> {
+  const { error } = await supabase
+    .from("conversations")
+    .update({ sales_brain_state: state })
+    .eq("id", conversationId);
+
+  if (error) {
+    throw error;
   }
 }
 

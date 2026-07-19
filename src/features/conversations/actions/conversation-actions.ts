@@ -13,7 +13,7 @@ import { sendStaffMessageSchema } from "@/features/conversations/validators/send
 import { CONVERSATION_STATUS_VALUES } from "@/features/conversations/types";
 
 export type ActionResult =
-  | { success: true }
+  | { success: true; imported?: number }
   | { success: false; error: string };
 
 type CurrentUser = { id: string; email: string | null };
@@ -60,6 +60,40 @@ function revalidateInbox(conversationId: string) {
   revalidatePath(`/dashboard/inbox/${conversationId}`);
 }
 
+export async function syncChatPlaceMessagesAction(
+  conversationId: string
+): Promise<ActionResult & { imported?: number }> {
+  const parsedId = z.uuid().safeParse(conversationId);
+  if (!parsedId.success) {
+    return { success: false, error: "Geçersiz konuşma." };
+  }
+
+  try {
+    await requireCurrentUserId();
+    const supabase = createAdminClient();
+    const { syncChatPlaceMessagesForConversation } = await import(
+      "@/features/conversations/services/chatplace-sync.service"
+    );
+    const result = await syncChatPlaceMessagesForConversation(
+      supabase,
+      parsedId.data
+    );
+    revalidateInbox(parsedId.data);
+    if (result.status === "error") {
+      return { success: false, error: result.message };
+    }
+    return {
+      success: true,
+      imported: result.imported,
+    };
+  } catch {
+    return {
+      success: false,
+      error: "Mesajlar çekilemedi. Lütfen tekrar deneyin.",
+    };
+  }
+}
+
 export async function sendStaffMessageAction(
   conversationId: string,
   content: string
@@ -74,9 +108,9 @@ export async function sendStaffMessageAction(
     // Kimlik doğrulaması RLS'e tabi (anon+cookie) istemciyle yapılır;
     // veri yazma işlemi ise service role ile (bkz. docs/DATABASE.md — RLS
     // henüz personel rol politikaları içermiyor, .cursor/rules/02-security.mdc).
-    await requireCurrentUserId();
+    const userId = await requireCurrentUserId();
     const supabase = createAdminClient();
-    await sendStaffMessage(supabase, parsed.data);
+    await sendStaffMessage(supabase, parsed.data, { actorId: userId });
     revalidateInbox(conversationId);
     return { success: true };
   } catch {

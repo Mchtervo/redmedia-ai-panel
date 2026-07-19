@@ -44,11 +44,16 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  nativeButton,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
+      // `render` ile Link/anchor gibi <button> olmayan bir öge verildiğinde
+      // Base UI'nin nativeButton varsayılanı (true) konsol hatası üretir;
+      // render varsa varsayılanı false'a çekiyoruz.
+      nativeButton={nativeButton ?? props.render === undefined}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
