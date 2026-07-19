@@ -61,8 +61,15 @@ export async function isAiFeatureEnabled(
   if (key === "AI_MASTER") return flags.AI_MASTER;
 
   if (key === "AI_DM_ASSISTANT") {
-    const env = process.env.AI_AUTO_REPLY_ENABLED?.trim().toLowerCase();
-    if (env === "false" || env === "0" || env === "off") return false;
+    // Canlı DM: açıkça true olmadıkça kapalı (AI_REPLY_ENABLED / AI_AUTO_REPLY_ENABLED)
+    const env = (
+      process.env.AI_REPLY_ENABLED ??
+      process.env.AI_AUTO_REPLY_ENABLED ??
+      ""
+    )
+      .trim()
+      .toLowerCase();
+    if (env !== "true" && env !== "1" && env !== "on") return false;
     if (!isOpenAiConfigured()) return false;
   }
 

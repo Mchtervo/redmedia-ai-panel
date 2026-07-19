@@ -169,6 +169,25 @@ export function validateTemplatedReply(params: {
     detail.push("Yalnızca katalog paket fiyatı (11/14/21).");
   }
 
+  // Doğrulanmamış kampanya / hediye — prompttan uydurma yasak
+  if (
+    /%20|yüzde\s*20|yuzde\s*20|erken\s*rezervasyon/i.test(text) ||
+    (/drone/i.test(text) && /hediye/i.test(text))
+  ) {
+    violations.push("price_not_allowed");
+    detail.push("Doğrulanmamış %20 / drone hediye yazılamaz.");
+  }
+
+  if (
+    template.strategyId === "GREETING_ACK_v1" &&
+    /(paket|kapora|11\.?000|14\.?000|21\.?000|albüm\s*set|album\s*set)/i.test(
+      text
+    )
+  ) {
+    violations.push("strategy_drift");
+    detail.push("Greeting'de paket/fiyat dump.");
+  }
+
   const drift = strategyDrift(text, pack, template);
   if (drift) {
     violations.push("strategy_drift");

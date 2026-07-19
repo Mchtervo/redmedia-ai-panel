@@ -4,6 +4,7 @@
  */
 
 import type { DecisionPack, StrategyId } from "@/features/ai/services/decision-engine.service";
+import { isInformalChitchat } from "@/features/ai/services/message-intent";
 
 export const REPLY_SLOT_IDS = [
   "hook",
@@ -39,6 +40,26 @@ export type ReplyTemplate = {
 };
 
 const TEMPLATES: Record<StrategyId, ReplyTemplate> = {
+  GREETING_ACK_v1: {
+    strategyId: "GREETING_ACK_v1",
+    requireCta: false,
+    requireReference: false,
+    requireQuestion: true,
+    allowPrice: false,
+    maxWords: 35,
+    parts: [
+      { type: "slot", slot: "hook" },
+      { type: "slot", slot: "question" },
+    ],
+    defaults: {
+      hook: "Merhaba, hoş geldiniz.",
+      value: "",
+      proof: "",
+      question: "Dış çekim mi yoksa düğün günü çekimi mi düşünüyorsunuz?",
+      cta: "",
+      empathy: "",
+    },
+  },
   PRICE_DEFENSE_v3: {
     strategyId: "PRICE_DEFENSE_v3",
     requireCta: true,
@@ -267,14 +288,50 @@ export function getReplyTemplate(strategyId: StrategyId): ReplyTemplate {
   return TEMPLATES[strategyId];
 }
 
-export function getTemplateForDecision(pack: DecisionPack): ReplyTemplate {
+export function getTemplateForDecision(
+  pack: DecisionPack,
+  customerMessage?: string
+): ReplyTemplate {
   const base = getReplyTemplate(pack.strategyId);
-  // Template strategyId için kaynak gerçek; pack yalnızca fiyat/kelime sıkılaştırır
-  return {
+  const template: ReplyTemplate = {
     ...base,
+    defaults: { ...base.defaults },
     allowPrice: base.allowPrice && pack.allowPrice,
     maxWords: Math.min(base.maxWords, pack.maxWords),
   };
+
+  if (
+    pack.strategyId === "GREETING_ACK_v1" &&
+    customerMessage &&
+    isInformalChitchat(customerMessage)
+  ) {
+    template.defaults = {
+      ...template.defaults,
+      hook: "İyidir.",
+      question: "Çekim için mi yazdınız, yoksa bir şey mi soracaktınız?",
+    };
+  }
+
+  return template;
+}
+
+/** Duplicate engeli için alternatif greeting defaults. */
+export function alternateGreetingDefaults(seed: number): ReplySlotValues {
+  const alts = [
+    {
+      hook: "Merhaba.",
+      question: "Nasıl bir çekim bakıyorsunuz?",
+    },
+    {
+      hook: "Selam, hoş geldiniz.",
+      question: "Düğün / nişan günü mü, yoksa dış çekim mi?",
+    },
+    {
+      hook: "Merhaba.",
+      question: "Size nasıl yardımcı olayım — çekim mi bakıyorsunuz?",
+    },
+  ];
+  return alts[Math.abs(seed) % alts.length]!;
 }
 
 /** Slot değerlerini birleştir → nihai mesaj. */

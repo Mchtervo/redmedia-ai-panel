@@ -4,8 +4,14 @@
  */
 
 import type { SalesBrainSnapshot } from "@/features/ai/services/sales-brain.service";
+import {
+  hasExplicitPriceIntent,
+  isGreetingOnly,
+  isInformalChitchat,
+} from "@/features/ai/services/message-intent";
 
 export const CONVERSATION_MOVES = [
+  "greeting_ack",
   "build_trust",
   "empathy_only",
   "ask_one_question",
@@ -32,6 +38,13 @@ export type ConversationStrategy = {
 };
 
 const MOVE_DIRECTIVES: Record<ConversationMove, Omit<ConversationStrategy, "move" | "rationale">> = {
+  greeting_ack: {
+    directive:
+      "Sadece kısa selamlama + 1 ihtiyaç sorusu. Fiyat/paket/indirim/drone/kapora YASAK.",
+    allowPrice: false,
+    allowQuestion: true,
+    maxLines: 2,
+  },
   build_trust: {
     directive: "Şu an fiyat verme. Güven oluştur; kısa ve samimi ol.",
     allowPrice: false,
@@ -101,8 +114,7 @@ const MOVE_DIRECTIVES: Record<ConversationMove, Omit<ConversationStrategy, "move
 };
 
 function asksPrice(message: string): boolean {
-  const n = message.toLocaleLowerCase("tr-TR");
-  return /fiyat|kaç\s*para|ne\s*kadar|ücret|kaç\s*tl|fiyati|fiyatı/.test(n);
+  return hasExplicitPriceIntent(message);
 }
 
 function looksUpset(message: string): boolean {
@@ -132,6 +144,16 @@ export function decideConversationStrategy(params: {
   let move: ConversationMove = "ask_one_question";
   let rationale = "Varsayılan: tek soru ile ilerleme.";
 
+  // GREETING / INFORMAL — eski NBA give_price memory'sini EZME
+  if (isGreetingOnly(msg) || isInformalChitchat(msg)) {
+    move = "greeting_ack";
+    rationale = isInformalChitchat(msg)
+      ? "Samimi/alakasız giriş — paket satma, kısa sohbet."
+      : "Sadece selamlama — fiyat/paket dump YASAK.";
+    const base = MOVE_DIRECTIVES[move];
+    return { move, ...base, rationale };
+  }
+
   if (upset) {
     move = "empathy_only";
     rationale = "Müşteri gerilimli — önce empati.";
@@ -141,9 +163,20 @@ export function decideConversationStrategy(params: {
   } else if (brain.nextBestAction === "ask_deposit" || brain.objective === "approach_deposit") {
     move = "ask_deposit";
     rationale = "Kapora/yakın kapanış hedefi.";
-  } else if (brain.nextBestAction === "give_price" || brain.objective === "give_price") {
+  } else if (
+    priceAsk &&
+    (brain.nextBestAction === "give_price" || brain.objective === "give_price")
+  ) {
+    // NBA give_price YALNIZCA müşteri fiyat sorduğunda
     move = "give_price";
-    rationale = "NBA/objective fiyat vermeyi istiyor.";
+    rationale = "Açık fiyat niyeti + NBA fiyat.";
+  } else if (
+    !priceAsk &&
+    (brain.nextBestAction === "give_price" || brain.objective === "give_price")
+  ) {
+    move = "ask_one_question";
+    rationale =
+      "Eski NBA give_price yok sayıldı — mesajda açık fiyat niyeti yok.";
   } else if (
     priceAsk &&
     (brain.scores.trust < 45 || brain.objective === "build_trust")
@@ -183,10 +216,16 @@ export function decideConversationStrategy(params: {
     rationale = `Objective=${brain.objective}, NBA=${brain.nextBestAction}.`;
   }
 
-  // Tekrarlayan fiyat sorusunda withhold'u kır
+  // Tekrarlayan fiyat sorusunda withhold'u kır — yine açık niyet şart
   if (move === "withhold_price" && priceAsk && brain.turn >= 3) {
     move = "give_price";
     rationale = "Fiyat tekrar soruldu — net katalog fiyatı ver.";
+  }
+
+  // Sert kapı: fiyat niyeti yoksa asla give_price
+  if (move === "give_price" && !priceAsk) {
+    move = "ask_one_question";
+    rationale = "give_price iptal — açık fiyat niyeti yok.";
   }
 
   const base = MOVE_DIRECTIVES[move];

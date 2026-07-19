@@ -10,9 +10,11 @@ import {
   type ConversationMove,
   type ConversationStrategy,
 } from "@/features/ai/services/conversation-strategist.service";
+import { hasExplicitPriceIntent } from "@/features/ai/services/message-intent";
 
 /** Versioned strategy playbooks — GPT bunları icat etmez. */
 export const STRATEGY_IDS = [
+  "GREETING_ACK_v1",
   "PRICE_DEFENSE_v3",
   "TRUST_BUILD_v2",
   "GIVE_PRICE_SHORT_v2",
@@ -145,9 +147,7 @@ function leadTemperature(brain: SalesBrainSnapshot): number {
 }
 
 function asksPrice(message: string): boolean {
-  return /fiyat|kaç\s*para|ne\s*kadar|ücret|kaç\s*tl|fiyatı|fiyati/i.test(
-    message
-  );
+  return hasExplicitPriceIntent(message);
 }
 
 function looksUpset(message: string): boolean {
@@ -164,6 +164,21 @@ type StrategySpec = {
 };
 
 const SPECS: Record<StrategyId, StrategySpec> = {
+  GREETING_ACK_v1: {
+    id: "GREETING_ACK_v1",
+    requireSocialProof: false,
+    requireCta: false,
+    maxWords: 35,
+    writerBrief: [
+      "1–2 kısa cümle.",
+      "Fiyat/paket/indirim/drone/kapora YASAK.",
+      "Tek ihtiyaç sorusu (dış çekim / düğün günü vb.).",
+    ],
+    naturalExamples: [
+      "Merhaba, hoş geldiniz. Dış çekim mi yoksa düğün günü çekimi mi düşünüyorsunuz?",
+      "Selam. Nasıl bir çekim bakıyorsunuz?",
+    ],
+  },
   PRICE_DEFENSE_v3: {
     id: "PRICE_DEFENSE_v3",
     requireSocialProof: true,
@@ -325,6 +340,7 @@ function pickStrategyId(
   risk: ConversationRisk,
   message: string
 ): StrategyId {
+  if (move === "greeting_ack") return "GREETING_ACK_v1";
   if (move === "empathy_only") return "EMPATHY_HOLD_v1";
   if (move === "wait") return "WAIT_SPACE_v1";
   if (move === "ask_deposit") return "ASK_DEPOSIT_v1";
@@ -338,7 +354,10 @@ function pickStrategyId(
     if (risk === "Fiyat") return "PRICE_DEFENSE_v3";
     return "OBJECTION_RESOLVE_v2";
   }
-  if (move === "give_price") return "GIVE_PRICE_SHORT_v2";
+  // Sert: give_price yalnızca açık fiyat niyetiyle
+  if (move === "give_price") {
+    return asksPrice(message) ? "GIVE_PRICE_SHORT_v2" : "GREETING_ACK_v1";
+  }
   if (move === "no_question") return "WAIT_SPACE_v1";
 
   // ask_one_question
@@ -346,6 +365,7 @@ function pickStrategyId(
     return "DATE_CONFIRM_v1";
   }
   if (
+    asksPrice(message) &&
     risk === "Fiyat" &&
     (brain.persona === "undecided" || brain.scores.priceSensitivity >= 60)
   ) {
@@ -388,10 +408,20 @@ export function decideSalesDecision(params: {
   );
   const spec = SPECS[strategyId];
 
-  // PRICE_DEFENSE: fiyat vermeden savun — strategist allowPrice false kalsın
-  let allowPrice = strategy.allowPrice;
+  // Sert kapılar: fiyat yalnızca açık niyet + GIVE_PRICE
+  let allowPrice =
+    strategy.allowPrice &&
+    strategyId === "GIVE_PRICE_SHORT_v2" &&
+    asksPrice(params.customerMessage);
   let allowQuestion = strategy.allowQuestion;
-  if (strategyId === "PRICE_DEFENSE_v3" && strategy.move !== "give_price") {
+  if (strategyId === "PRICE_DEFENSE_v3") {
+    allowPrice = false;
+  }
+  if (
+    strategyId === "EMPATHY_HOLD_v1" ||
+    strategyId === "WAIT_SPACE_v1" ||
+    strategyId === "GREETING_ACK_v1"
+  ) {
     allowPrice = false;
   }
   if (strategyId === "EMPATHY_HOLD_v1" || strategyId === "WAIT_SPACE_v1") {

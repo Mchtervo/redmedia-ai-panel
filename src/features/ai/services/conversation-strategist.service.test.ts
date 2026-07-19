@@ -29,17 +29,29 @@ describe("conversation-strategist", () => {
     assert.equal(s.allowQuestion, false);
   });
 
-  it("NBA give_price iken fiyat verir", () => {
+  it("NBA give_price + açık fiyat niyeti → give_price", () => {
     const brain = createInitialSalesBrain("t", 4);
     brain.nextBestAction = "give_price";
     brain.objective = "give_price";
     brain.scores.trust = 70;
     const s = decideConversationStrategy({
       brain,
-      customerMessage: "paketleriniz neler",
+      customerMessage: "fiyat nedir?",
     });
     assert.equal(s.move, "give_price");
     assert.equal(s.allowPrice, true);
+  });
+
+  it("NBA give_price olsa bile selamlamada fiyat vermez", () => {
+    const brain = createInitialSalesBrain("t", 4);
+    brain.nextBestAction = "give_price";
+    brain.objective = "give_price";
+    const s = decideConversationStrategy({
+      brain,
+      customerMessage: "Merhabalar",
+    });
+    assert.equal(s.move, "greeting_ack");
+    assert.equal(s.allowPrice, false);
   });
 
   it("prompt bloğu hamle emri içerir", () => {
@@ -48,6 +60,7 @@ describe("conversation-strategist", () => {
       brain,
       customerMessage: "merhaba",
     });
+    assert.equal(s.move, "greeting_ack");
     const block = composeStrategistPromptBlock(s);
     assert.match(block, /CONVERSATION STRATEGIST/);
     assert.match(block, new RegExp(s.move));

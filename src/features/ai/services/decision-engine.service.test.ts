@@ -32,24 +32,36 @@ describe("decision-engine", () => {
     assert.ok(pack.analysis.leadTemperature >= 0);
   });
 
-  it("NBA give_price iken GIVE_PRICE_SHORT_v2", () => {
+  it("NBA give_price + açık fiyat → GIVE_PRICE_SHORT_v2", () => {
     const brain = createInitialSalesBrain("t", 5);
     brain.nextBestAction = "give_price";
     brain.objective = "give_price";
     brain.scores.trust = 70;
     const pack = decideSalesDecision({
       brain,
-      customerMessage: "paketleriniz neler",
+      customerMessage: "fiyat nedir?",
     });
     assert.equal(pack.strategyId, "GIVE_PRICE_SHORT_v2");
     assert.equal(pack.allowPrice, true);
+  });
+
+  it("Merhaba → GREETING_ACK, allowPrice false", () => {
+    const brain = createInitialSalesBrain("t", 1);
+    brain.nextBestAction = "give_price";
+    brain.objective = "give_price";
+    const pack = decideSalesDecision({
+      brain,
+      customerMessage: "Merhabalar",
+    });
+    assert.equal(pack.strategyId, "GREETING_ACK_v1");
+    assert.equal(pack.allowPrice, false);
   });
 
   it("prompt bloğu Strategy + yasak kalıplar içerir", () => {
     const brain = createInitialSalesBrain("t", 2);
     const pack = decideSalesDecision({
       brain,
-      customerMessage: "merhaba",
+      customerMessage: "tarihiniz net mi diye soracağım aslında mekan belli",
     });
     const block = composeDecisionEnginePromptBlock(pack);
     assert.match(block, /DECISION ENGINE/);

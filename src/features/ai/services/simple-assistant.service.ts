@@ -180,15 +180,23 @@ export const HUMAN_APPROVAL_HOLD_REPLY =
   "Talebiniz ilgili ekibe iletildi. En kısa sürede dönüş yapacağız.";
 
 /**
- * Env acil kapatma (geriye dönük). Asıl kontrol panel AI_DM_ASSISTANT +
- * AI_MASTER bayraklarıdır (`isAiFeatureEnabled`).
+ * Canlı Instagram/DM auto-reply.
+ * ACİL: varsayılan KAPALI. Açmak için açıkça:
+ * AI_REPLY_ENABLED=true veya AI_AUTO_REPLY_ENABLED=true
+ * (+ OpenAI + panel AI_DM_ASSISTANT).
  */
 export function isAiAutoReplyEnabled(): boolean {
-  const flag = process.env.AI_AUTO_REPLY_ENABLED?.trim().toLowerCase();
-  if (flag === "false" || flag === "0" || flag === "off") {
-    return false;
+  const flag = (
+    process.env.AI_REPLY_ENABLED ??
+    process.env.AI_AUTO_REPLY_ENABLED ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
+  if (flag === "true" || flag === "1" || flag === "on") {
+    return isOpenAiConfigured();
   }
-  return isOpenAiConfigured();
+  return false;
 }
 
 export function requiresHumanApproval(customerMessage: string): boolean {
@@ -429,7 +437,26 @@ export async function generateSimpleAssistantReply(
       sessionKey,
     });
 
+    // Memory isolation: selamlama/sohbette eski give_price NBA taşınmasın
+    const { isNonSalesOpen, isNearDuplicateReply } = await import(
+      "@/features/ai/services/message-intent"
+    );
+    if (isNonSalesOpen(userContent)) {
+      salesBrain = {
+        ...salesBrain,
+        objective: "discover_need",
+        nextBestAction: "ask_question",
+        mainBlocker: "info",
+      };
+    }
+
     const salesBrainBlock = composeSalesBrainPromptBlock(salesBrain);
+
+    const lastAiReply =
+      [...recentMessages]
+        .reverse()
+        .find((m) => m.senderType === "ai")
+        ?.content?.trim() ?? null;
 
     let conversationStrategy: ConversationStrategy | undefined;
     let decisionPack: DecisionPack | undefined;
@@ -478,7 +505,38 @@ export async function generateSimpleAssistantReply(
         pack: decisionPack,
         customerMessage: userContent,
         dateHint: salesBrain.memory.dateHint,
+        lastAiReply,
       });
+
+      if (
+        lastAiReply &&
+        isNearDuplicateReply(templated.reply, lastAiReply) &&
+        decisionPack.strategyId !== "GREETING_ACK_v1"
+      ) {
+        const aiRun = await insertAiRun(supabase, {
+          taskType: SIMPLE_ASSISTANT_TASK_TYPE,
+          conversationId: params.conversationId,
+          contactId: params.contactId,
+          model: "system_duplicate_reply_block",
+          result: {
+            error: "duplicate_reply_blocked",
+            lastAiReply: lastAiReply.slice(0, 300),
+            blockedReply: templated.reply.slice(0, 300),
+          },
+          status: "failed",
+          requiresHumanApproval: needsHuman,
+        });
+        return {
+          reply: SIMPLE_ASSISTANT_FALLBACK_REPLY,
+          aiRunId: aiRun.id,
+          requiresHumanApproval: needsHuman,
+          model: "system_duplicate_reply_block",
+          generationFailed: true,
+          errorMessage: "Aynı cevap tekrar engellendi; gönderilmedi.",
+          salesBrain,
+          decisionPack,
+        };
+      }
 
       if (!templated.validation.ok) {
         // generateTemplatedReply garantör; yine de asla invalid gönderme
