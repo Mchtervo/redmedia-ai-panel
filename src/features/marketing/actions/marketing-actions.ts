@@ -16,11 +16,15 @@ import { generateMarketingStrategyDraft } from "@/features/marketing/services/ma
 import { createExperiment } from "@/features/marketing/services/experiment.service";
 import { createLearning } from "@/features/marketing/services/marketing-learning.service";
 
-async function requireUser() {
+async function requireUser(): Promise<{ id: string | null; email?: string }> {
+  const { isDevAuthBypassEnabled } = await import("@/lib/dev-auth-bypass");
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user && isDevAuthBypassEnabled()) {
+    return { id: null, email: "dev@local" };
+  }
   if (!user) throw new Error("Oturum gerekli.");
   return user;
 }
@@ -129,7 +133,33 @@ export async function generateStrategyAction(raw: unknown) {
     createdBy: user.id,
   });
   revalidatePath("/dashboard/marketing/strategies");
+  revalidatePath("/dashboard/marketing/performance");
   return { success: true as const, id: strategy.id };
+}
+
+export async function setAutopilotUiEnabledAction(enabled: boolean) {
+  await requireUser();
+  const admin = createAdminClient();
+  const { setAutopilotUiEnabled } = await import(
+    "@/features/marketing/services/ads-autopilot.service"
+  );
+  await setAutopilotUiEnabled(admin, enabled);
+  revalidatePath("/dashboard/marketing/autopilot");
+  return { success: true as const, enabled };
+}
+
+export async function runAutopilotAction(raw?: { dryRun?: boolean }) {
+  await requireUser();
+  const admin = createAdminClient();
+  const { runAdsAutopilot } = await import(
+    "@/features/marketing/services/ads-autopilot.service"
+  );
+  const summary = await runAdsAutopilot(admin, {
+    dryRun: raw?.dryRun,
+  });
+  revalidatePath("/dashboard/marketing/autopilot");
+  revalidatePath("/dashboard/marketing/performance");
+  return { success: true as const, summary };
 }
 
 export async function createExperimentAction(raw: unknown) {

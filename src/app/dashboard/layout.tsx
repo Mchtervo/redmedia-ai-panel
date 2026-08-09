@@ -11,6 +11,7 @@ import {
 import { AppHeader } from "@/components/dashboard/app-header";
 import { countUnreadNotifications } from "@/features/notifications/services/notifications.service";
 import { countPendingApprovals } from "@/features/approvals/repositories/approvals.repository";
+import { isDevAuthBypassEnabled } from "@/lib/dev-auth-bypass";
 
 async function loadHeaderCounts(): Promise<{
   unreadNotifications: number;
@@ -46,10 +47,11 @@ export default async function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const bypass = isDevAuthBypassEnabled();
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
 
-  if (!data.user) {
+  if (!data.user && !bypass) {
     redirect("/login");
   }
 
@@ -61,6 +63,7 @@ export default async function DashboardLayout({
   );
 
   const counts = await loadHeaderCounts();
+  const userEmail = data.user?.email ?? (bypass ? "dev@local" : "");
 
   return (
     <TooltipProvider>
@@ -68,7 +71,7 @@ export default async function DashboardLayout({
         <AppSidebar defaultCollapsedGroups={collapsedGroups} />
         <SidebarInset>
           <AppHeader
-            userEmail={data.user.email ?? ""}
+            userEmail={userEmail}
             unreadNotifications={counts.unreadNotifications}
             pendingApprovals={counts.pendingApprovals}
           />

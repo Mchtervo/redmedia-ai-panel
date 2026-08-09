@@ -49,7 +49,8 @@ export default async function MarketingReportsPage({ searchParams }: Props) {
         <div>
           <h2 className="text-lg font-medium">Günlük AI Marketing Report</h2>
           <p className="text-muted-foreground text-sm">
-            Öneri üretir; kampanya kapatmaz / bütçe değiştirmez. Cron:{" "}
+            Günlük rapor öneri üretir. Canlı pause/bütçe yalnızca Autopilot
+            (env+UI) açıksa. Cron:{" "}
             <code className="text-[11px]">GET /api/cron/marketing-daily-report</code>
           </p>
         </div>

@@ -15,9 +15,10 @@ import {
 
 type TypedSupabaseClient = SupabaseClient<Database>;
 
-/** Marketing + Instagram okuma + DM (bütçe değiştirme yok). */
+/** Marketing + Instagram + kontrollü ads yazma (Autopilot). */
 export const META_OAUTH_SCOPES = [
   "ads_read",
+  "ads_management",
   "business_management",
   "pages_show_list",
   "pages_read_engagement",

@@ -12,6 +12,7 @@ Yeni tablolar: `meta_connections`, `instagram_media*`, `customer_attributions`,
 `marketing_strategies`, `marketing_strategy_items`, `marketing_strategy_history`,
 `marketing_experiments`, `marketing_learnings`, `marketing_sync_logs`.
 
-**AI asla** kampanya kapatmaz / bütçe değiştirmez — yalnızca öneri.
+Autopilot kapalıyken AI yalnızca öneri üretir. Açıkken kontrollü pause/bütçe
+(kill-switch + audit + bütçe tavanı) — bkz. `docs/META.md`.
 
 Bkz. `docs/MARKETING.md`

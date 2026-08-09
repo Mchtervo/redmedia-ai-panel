@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isDevAuthBypassEnabled } from "@/lib/dev-auth-bypass";
 
 const PROTECTED_PREFIXES = ["/dashboard"];
 const AUTH_PREFIXES = ["/login"];
@@ -14,6 +15,7 @@ const AUTH_PREFIXES = ["/login"];
  *
  * Not: Bu kontrol "optimistic" bir ön kontroldür; her sayfa (login/dashboard)
  * ayrıca kendi içinde oturumu tekrar doğrular (savunma derinliği).
+ * DEV_BYPASS_AUTH=true yalnızca development'ta login engelini kaldırır.
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -25,6 +27,10 @@ export async function proxy(request: NextRequest) {
   const isAuthRoute = AUTH_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix)
   );
+
+  if (isDevAuthBypassEnabled()) {
+    return response;
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();

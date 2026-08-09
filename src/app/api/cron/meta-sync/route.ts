@@ -50,7 +50,16 @@ export async function GET(request: Request): Promise<Response> {
     } catch {
       igsidSync = { ok: false, note: "IGSID senkronu atlandı" };
     }
-    const data = { health, sync, igsidSync };
+    let autopilot: unknown = null;
+    try {
+      const { runAdsAutopilot } = await import(
+        "@/features/marketing/services/ads-autopilot.service"
+      );
+      autopilot = await runAdsAutopilot(admin);
+    } catch {
+      autopilot = { ok: false, note: "Autopilot atlandı" };
+    }
+    const data = { health, sync, igsidSync, autopilot };
     return Response.json({
       success: true,
       data,

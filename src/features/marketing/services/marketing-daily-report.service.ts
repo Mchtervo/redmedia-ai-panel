@@ -1,5 +1,5 @@
 /**
- * Günlük AI Marketing Report — öneri üretir, kampanya kapatmaz / bütçe değiştirmez.
+ * Günlük AI Marketing Report — öneri üretir (canlı yazma Autopilot’ta).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/types/database";

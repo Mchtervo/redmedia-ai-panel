@@ -3,7 +3,8 @@ import { cn } from "@/lib/utils";
 
 const LINKS: { href: string; label: string; exact?: boolean }[] = [
   { href: "/dashboard/marketing", label: "Genel Bakış", exact: true },
-  { href: "/dashboard/marketing/performance", label: "Reklam Performansı" },
+  { href: "/dashboard/marketing/performance", label: "Ads Manager" },
+  { href: "/dashboard/marketing/autopilot", label: "Autopilot" },
   { href: "/dashboard/marketing/instagram", label: "Instagram İçerikleri" },
   { href: "/dashboard/marketing/attribution", label: "Attribution" },
   { href: "/dashboard/marketing/reports", label: "AI Raporlar" },

@@ -321,6 +321,72 @@ export type Database = {
         };
         Relationships: [];
       };
+      ad_action_logs: {
+        Row: {
+          id: string;
+          entity_type: "campaign" | "ad_set" | "ad";
+          entity_id: string | null;
+          meta_entity_id: string;
+          action:
+            | "pause"
+            | "activate"
+            | "budget_increase"
+            | "budget_decrease"
+            | "noop"
+            | "dry_run";
+          before_value: Json | null;
+          after_value: Json | null;
+          reason: string;
+          score: "good" | "ok" | "bad" | null;
+          dry_run: boolean;
+          success: boolean;
+          error_code: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_type: "campaign" | "ad_set" | "ad";
+          entity_id?: string | null;
+          meta_entity_id: string;
+          action:
+            | "pause"
+            | "activate"
+            | "budget_increase"
+            | "budget_decrease"
+            | "noop"
+            | "dry_run";
+          before_value?: Json | null;
+          after_value?: Json | null;
+          reason: string;
+          score?: "good" | "ok" | "bad" | null;
+          dry_run?: boolean;
+          success?: boolean;
+          error_code?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          entity_type?: "campaign" | "ad_set" | "ad";
+          entity_id?: string | null;
+          meta_entity_id?: string;
+          action?:
+            | "pause"
+            | "activate"
+            | "budget_increase"
+            | "budget_decrease"
+            | "noop"
+            | "dry_run";
+          before_value?: Json | null;
+          after_value?: Json | null;
+          reason?: string;
+          score?: "good" | "ok" | "bad" | null;
+          dry_run?: boolean;
+          success?: boolean;
+          error_code?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       contacts: {
         Row: {
           id: string;

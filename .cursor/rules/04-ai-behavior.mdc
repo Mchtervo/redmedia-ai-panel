@@ -59,6 +59,11 @@ ara cevap verebilir, ancak nihai kararı kendisi vermeyecek.
 
 ## Meta Reklamlarına Özel Sınırlar
 
-- AI, reklam bütçesini veya durumunu (aç/kapa) kendi başına değiştiremez;
-  yalnızca analiz ve öneri üretir (bkz. `docs/META.md`).
-- Bütçe değişikliği önerisi insan onayından geçmeden uygulanmayacak.
+- Autopilot açıkken AI, deterministik kurallarla pause/resume ve sınırlı
+  bütçe değişikliği **uygulayabilir** (bkz. `docs/META.md`).
+- Otomatik uygulama yalnızca şu raylar varken geçerlidir: env kill-switch
+  (`META_ADS_AUTOPILOT_ENABLED`), UI Acil durdur, günlük bütçe tavanı
+  (`META_ADS_AUTOPILOT_MAX_BUDGET_DELTA_PCT`), minimum harcama eşiği,
+  ACTIVE/PAUSED kısıtı ve her eylem için `ad_action_logs` audit kaydı.
+- Bu raylardan biri kapalıysa Meta’ya yazılmaz; dry-run / öneri modunda
+  kalınır. Yeni kampanya veya kreatif oluşturma Autopilot kapsamı dışındadır.

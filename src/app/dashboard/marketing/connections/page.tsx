@@ -58,7 +58,8 @@ export default async function MarketingConnectionsPage({ searchParams }: Props) 
           <h2 className="text-lg font-medium">Bağlantılar ve Sağlık</h2>
           <p className="text-muted-foreground text-sm">
             Meta erişimi yalnızca OAuth ile. Secret değerler tarayıcıya gitmez.
-            Kampanya kapatma / bütçe değişikliği yapılmaz.
+            Yazma (pause/bütçe) için ads_management scope gerekir — Tekrar
+            Yetkilendir; uygulama Autopilot kill-switch ile kontrol edilir.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
