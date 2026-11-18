@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
+import { DM_AUTO_REPLY_HARD_OFF } from "@/features/ai/services/simple-assistant.service";
 
 type TypedSupabaseClient = SupabaseClient<Database>;
 
@@ -330,7 +331,9 @@ export async function runDueFollowUps(supabase: TypedSupabaseClient) {
     }
 
     const text = task.ai_generated_message?.trim();
-    if (task.contact_id && text) {
+    // DM_AUTO_REPLY_HARD_OFF: cron Instagram'a kendiliğinden mesaj ATMAZ;
+    // görev personel kuyruğuna düşer, panelden "Gönder" ile elle gider.
+    if (!DM_AUTO_REPLY_HARD_OFF && task.contact_id && text) {
       const sent = await sendMetaDmForContact(supabase, {
         contactId: task.contact_id,
         conversationId: task.conversation_id,
