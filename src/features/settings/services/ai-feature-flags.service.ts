@@ -11,6 +11,7 @@ import {
   type AiFlagKey,
 } from "@/features/settings/types";
 import { isOpenAiConfigured } from "@/lib/ai/openai-client";
+import { DM_AUTO_REPLY_HARD_OFF } from "@/features/ai/services/simple-assistant.service";
 
 type TypedSupabaseClient = SupabaseClient<Database>;
 
@@ -61,6 +62,7 @@ export async function isAiFeatureEnabled(
   if (key === "AI_MASTER") return flags.AI_MASTER;
 
   if (key === "AI_DM_ASSISTANT") {
+    if (DM_AUTO_REPLY_HARD_OFF) return false;
     // Canlı DM: açıkça true olmadıkça kapalı (AI_REPLY_ENABLED / AI_AUTO_REPLY_ENABLED)
     const env = (
       process.env.AI_REPLY_ENABLED ??

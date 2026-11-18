@@ -185,7 +185,14 @@ export const HUMAN_APPROVAL_HOLD_REPLY =
  * AI_REPLY_ENABLED=true veya AI_AUTO_REPLY_ENABLED=true
  * (+ OpenAI + panel AI_DM_ASSISTANT).
  */
+/**
+ * Sert kapatma: true iken Instagram DM'ye otomatik cevap ASLA üretilmez/gönderilmez
+ * (Vercel env'de AI_REPLY_ENABLED=true kalmış olsa bile). Tekrar açmak için false yap.
+ */
+export const DM_AUTO_REPLY_HARD_OFF = true;
+
 export function isAiAutoReplyEnabled(): boolean {
+  if (DM_AUTO_REPLY_HARD_OFF) return false;
   const flag = (
     process.env.AI_REPLY_ENABLED ??
     process.env.AI_AUTO_REPLY_ENABLED ??

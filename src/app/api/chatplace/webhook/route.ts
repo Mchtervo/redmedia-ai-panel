@@ -6,6 +6,7 @@ import { CHATPLACE_TOKEN_HEADER } from "@/server/webhooks/chatplace-token";
 import { checkRateLimit } from "@/server/rate-limit/in-memory-rate-limiter";
 import { processChatPlaceWebhook } from "@/features/conversations/services/chatplace-webhook.service";
 import { apiError, apiSuccess } from "@/types/api";
+import { DM_AUTO_REPLY_HARD_OFF } from "@/features/ai/services/simple-assistant.service";
 
 // İmza/token doğrulaması node:crypto kullandığı için Node.js runtime gereklidir.
 export const runtime = "nodejs";
@@ -95,8 +96,11 @@ export async function POST(request: NextRequest) {
     // processed | duplicate | ignored → 200 (ChatPlace tekrar denemesin).
     // reply + sendReply HER ZAMAN döner — alan yoksa ChatPlace eski aiReply
     // değişkenini koruyup tekrar gönderebiliyordu (12k pitch stale bug).
-    const replyText =
-      "reply" in result && typeof result.reply === "string"
+    // DM_AUTO_REPLY_HARD_OFF: Instagram'a hiçbir otomatik cevap (AI veya
+    // dekont şablonu) gitmez; env ne derse desin. Mesajlar CRM'e yine kaydedilir.
+    const replyText = DM_AUTO_REPLY_HARD_OFF
+      ? ""
+      : "reply" in result && typeof result.reply === "string"
         ? result.reply.trim()
         : "";
     const sendReply = Boolean(replyText);
