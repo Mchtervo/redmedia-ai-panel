@@ -98,9 +98,7 @@ export async function POST(request: NextRequest) {
     // değişkenini koruyup tekrar gönderebiliyordu (12k pitch stale bug).
     // DM_AUTO_REPLY_HARD_OFF: Instagram'a hiçbir otomatik cevap (AI veya
     // dekont şablonu) gitmez; env ne derse desin. Mesajlar CRM'e yine kaydedilir.
-    // İstisna: numara toplama akışında izinli kullanıcıya sabit metin (dmIzinli).
-    const dmIzinli = "dmIzinli" in result && result.dmIzinli === true;
-    const replyText = DM_AUTO_REPLY_HARD_OFF && !dmIzinli
+    const replyText = DM_AUTO_REPLY_HARD_OFF
       ? ""
       : "reply" in result && typeof result.reply === "string"
         ? result.reply.trim()
