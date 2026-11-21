@@ -34,7 +34,7 @@ import { runAutomationsForEvent } from "@/features/automations/services/automati
 type TypedSupabaseClient = SupabaseClient<Database>;
 
 export type ProcessChatPlaceWebhookResult =
-  | { outcome: "processed"; webhookEventId: string; reply?: string }
+  | { outcome: "processed"; webhookEventId: string; reply?: string; dmIzinli?: boolean }
   | { outcome: "duplicate"; webhookEventId: string }
   | { outcome: "ignored"; webhookEventId: string; reason: string }
   | { outcome: "invalid"; webhookEventId: string; reason: string }
@@ -212,8 +212,44 @@ export async function processChatPlaceWebhook(
     }
 
     let reply: string | undefined = receiptReply ?? undefined;
+    // Numara toplama DM akışı (izinli kullanıcı): sabit metin, AI yazımı yok.
+    let dmIzinli = false;
+    if (customerMessage && !receiptReply) {
+      try {
+        const { dmLeadCaptureReply } = await import("@/features/ai/services/dm-lead-capture.service");
+        const lc = await dmLeadCaptureReply(supabase, {
+          customerMessage,
+          conversationId: ingestResult.conversationId,
+          username: parsed.data.contact.username ?? null,
+          fullName: parsed.data.contact.full_name ?? null,
+        });
+        if (lc) {
+          dmIzinli = true;
+          reply = lc.reply;
+          await sendAiMessage(supabase, { conversationId: ingestResult.conversationId, content: lc.reply });
+          await appendTimelineEvent(supabase, {
+            contactId: ingestResult.contactId,
+            conversationId: ingestResult.conversationId,
+            eventType: "ai_reply",
+            title: lc.telefon ? (lc.siteyeAktarildi ? "Numara alındı → arama sırasına eklendi" : "Numara alındı (siteye AKTARILAMADI)") : "Numara isteme cevabı",
+            body: lc.reply.slice(0, 180),
+            actorType: "ai",
+          }).catch(() => null);
+          if (lc.telefon) {
+            await createPanelNotification(supabase, {
+              type: "ai_approval_pending",
+              title: lc.siteyeAktarildi ? "Instagram DM'den numara geldi — aranacak" : "Instagram DM'den numara geldi — siteye aktarılamadı, siz arayın",
+              body: `${parsed.data.contact.username ? "@" + parsed.data.contact.username + " · " : ""}${lc.telefon}`,
+              payload: { telefon: lc.telefon },
+            }).catch(() => null);
+          }
+        }
+      } catch (lcError) {
+        console.error("[chatplace-webhook] DM numara akışı hatası:", lcError instanceof Error ? lcError.message : "bilinmeyen");
+      }
+    }
 
-    if (isAiAutoReplyEnabled() && customerMessage && !receiptReply) {
+    if (!dmIzinli && isAiAutoReplyEnabled() && customerMessage && !receiptReply) {
       try {
         const aiResult = await generateSimpleAssistantReply(supabase, {
           customerMessage,
@@ -298,6 +334,7 @@ export async function processChatPlaceWebhook(
       outcome: "processed",
       webhookEventId: webhookEvent.id,
       ...(reply ? { reply } : {}),
+      ...(dmIzinli ? { dmIzinli: true } : {}),
     };
   } catch (error) {
     // Hata detayı istemciye sızdırılmaz; kısa, hassas-veri içermeyen bir
